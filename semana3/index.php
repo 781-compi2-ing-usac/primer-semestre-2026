@@ -26,9 +26,8 @@
         <div class="console">
             <?php
             require_once("bootstrap.php");
-
-            $grammar = new calc();
-            $parser = new parse_engine($grammar);
+            
+            $parser = new parse_engine(new grammar());
 
             if (!empty($input)) {
                 try {
@@ -45,10 +44,17 @@
                         $parser->eat($tok, $val);
                     }
                     $interpreter = new Interpreter();
-                    $ast->accept($interpreter);
-                    echo $interpreter->output;
+                    foreach ($ast as $stmt) {
+                        $stmt->accept($interpreter);
+                    }
+                    $output = str_replace(["\r\n", "\r"], "\n", $interpreter->output);
+
+                    // quitar espacios al inicio de cada línea
+                    $output = preg_replace('/^[ \t]+/m', '', $output);
+
+                    echo htmlspecialchars($output);                    
                 } catch(Exception $e) {
-                    echo "Error: " . $e->getMessage();
+                    echo "Error: " . htmlspecialchars($e->getMessage());
                 }
             } else {
                 echo "Por favor ingrese código para parsear.";

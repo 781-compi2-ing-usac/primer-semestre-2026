@@ -6,4 +6,7 @@ interface Visitor {
     public function visitAgroupedExpression(AgroupedExpression $expr);
     public function visitNumberExpression(NumberExpression $expr);
     public function visitPrintStatement(PrintStatement $expr);
+    public function visitVarDclStatement(VarDclStatement $expr);
+    public function visitRefVarStatement(RefVarStatement $expr);
+    public function visitBlockStatement(BlockStatement $expr);
 }

@@ -101,6 +101,49 @@ class PrintStatement extends Expression {
     }
 
     public function __toString() {
-        return "PrintExpression(" . $this->expression . ")";
+        return "PrintStatement(" . $this->expression . ")";
+    }
+}
+
+class VarDclStatement extends Expression {
+    public $id;
+    public $expression;
+    public function __construct($id, $expr, $location) {
+        parent::__construct($location);
+        $this->id = $id;
+        $this->expression = $expr;
+    }
+    public function accept(Visitor $visitor) {
+        return $visitor->visitVarDclStatement($this);
+    }
+    public function __toString() {
+        return "VarDclStatement(" . $this->id . " " . $this->expression . ")";
+    }
+}
+
+class RefVarStatement extends Expression {
+    public $id;
+    public function __construct($id, $location) {
+        parent::__construct($location);
+        $this->id = $id;
+    }
+    public function accept(Visitor $visitor) {
+        return $visitor->visitRefVarStatement($this);
+    }
+    public function __toString() {
+        return "RefVarStatement(" . $this->id . ")";
+    }
+}
+
+class BlockStatement extends Expression {
+    public $stmts;
+    public function __construct($stmts, $location) {
+        $this->stmts = $stmts;
+    }
+    public function accept(Visitor $visitor) {
+        return $visitor->visitBlockStatement($this);
+    }
+    public function __toString() {
+        return "BlockStatement(" . $this->stmts . ")";
     }
 }

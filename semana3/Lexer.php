@@ -217,6 +217,38 @@ class Lexer {
                 $end_col = $this->col;
                 return array("')'", array('value' => $lexeme, 'location' => array('start' => array('line'=>$start_line,'col'=>$start_col), 'end' => array('line'=>$end_line,'col'=>$end_col))));
             }
+            if (preg_match('/\G\{/A', $this->input, $m, 0, $this->pos)) {
+                $lexeme = $m[0];
+                $start_line = $this->line;
+                $start_col = $this->col;
+                $lines = explode("\n", $lexeme);
+                if (count($lines) > 1) {
+                    $this->line += count($lines) - 1;
+                    $this->col = strlen(end($lines)) + 1;
+                } else {
+                    $this->col += strlen($lexeme);
+                }
+                $this->pos += strlen($lexeme);
+                $end_line = $this->line;
+                $end_col = $this->col;
+                return array("'{'", array('value' => $lexeme, 'location' => array('start' => array('line'=>$start_line,'col'=>$start_col), 'end' => array('line'=>$end_line,'col'=>$end_col))));
+            }
+            if (preg_match('/\G\}/A', $this->input, $m, 0, $this->pos)) {
+                $lexeme = $m[0];
+                $start_line = $this->line;
+                $start_col = $this->col;
+                $lines = explode("\n", $lexeme);
+                if (count($lines) > 1) {
+                    $this->line += count($lines) - 1;
+                    $this->col = strlen(end($lines)) + 1;
+                } else {
+                    $this->col += strlen($lexeme);
+                }
+                $this->pos += strlen($lexeme);
+                $end_line = $this->line;
+                $end_col = $this->col;
+                return array("'}'", array('value' => $lexeme, 'location' => array('start' => array('line'=>$start_line,'col'=>$start_col), 'end' => array('line'=>$end_line,'col'=>$end_col))));
+            }
             throw new Exception('Lexical error at line ' . $this->line . ', col ' . $this->col);
         }
         return array('EOF', array('value' => null, 'location' => array('start'=>array('line'=>$this->line,'col'=>$this->col),'end'=>array('line'=>$this->line,'col'=>$this->col))));

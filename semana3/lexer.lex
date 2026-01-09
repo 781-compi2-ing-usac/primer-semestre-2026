@@ -15,5 +15,7 @@
 
 "("                     return '(';
 ")"                     return ')';
+"{"                     return '{';
+"}"                     return '}';
 
 <<EOF>>                 return 'EOF';
