@@ -172,4 +172,33 @@ class Interpreter implements Visitor {
         $func = new Foreign($expr, $this->env);
         $this->env->set($expr->id, $func);
     }
+
+    public function visitClassDclStatement(ClassDclStatement $expr){
+        $functions = array();
+        $properties = array();
+        
+        foreach ($expr->block->stmts as $stmt) {
+            if ($stmt instanceof FunctionDclStatement) {
+                $functions[] = new FunctionDclStatement($stmt, $this->env);
+            } elseif ($stmt instanceof VarDclStatement) {
+                $properties[$stmt->id] = $stmt->expression;
+            }
+        }
+
+        $newClass = new ClassType($expr->id, $properties, $functions);
+        $this->env->set($expr->id, $newClass);
+    }
+
+    public function visitInstanceExpression(InstanceExpression $expr){
+        $class = $this->env->get($expr->id);
+        $args = array();
+        foreach ($expr->args as $arg) {
+                $args[] = $arg->accept($this);
+        }
+
+        if (!($class instanceof ClassType)) {
+                throw new Exception("No es posible instanciar algo que no es una clase");
+        }
+        return $class->invoke($this, $args);
+    }
 }

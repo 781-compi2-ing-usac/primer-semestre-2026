@@ -278,3 +278,34 @@ class FunctionDclStatement extends Expression {
         return "FunctionDclStatement(". $this->id . ")";
     }
 }
+
+class ClassDclStatement extends Expression {
+    public $id;
+    public $block;
+    public function __construct($id, $location) {
+        parent::__construct($location);
+        $this->id = $id;
+    }
+    public function accept(Visitor $visitor) {
+        return $visitor->visitClassDclStatement($this);
+    }
+    public function __toString() {
+        return "ClassDclStatement(" . $this->id . ")";
+    }
+}
+
+class InstanceExpression extends Expression {
+    public $id;
+    public $args;
+    public function __construct($id, $args, $location) {
+        parent::__construct($location);
+        $this->id = $id;
+        $this->args= $args;
+    }
+    public function accept(Visitor $visitor) {
+        return $visitor->visitInstanceExpression($this);
+    }
+    public function __toString() {
+        return "InstanceExpression(" . $this->id . ")";
+    }
+}

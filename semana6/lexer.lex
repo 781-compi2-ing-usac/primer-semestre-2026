@@ -14,6 +14,7 @@
 "func"                  return 'func';
 "var"                   return 'var';
 "new"                   return 'new';
+"class"                 return 'class';
 
 [a-zA-Z_][a-zA-Z0-9_]*  return 'id';
 "="                     return '=';

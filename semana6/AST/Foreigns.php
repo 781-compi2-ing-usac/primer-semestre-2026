@@ -26,4 +26,9 @@ class Foreign extends Invocable {
         return $retVal;
     }
 
+    public function link($instance) {
+        $hiddenEnv = new Environment($this->closure);
+        $hiddenEnv->set("this", $instance);
+        return new Foreign($this->node, $hiddenEnv);
+    }
 }

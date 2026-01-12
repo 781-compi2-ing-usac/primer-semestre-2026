@@ -17,4 +17,6 @@ interface Visitor {
     public function visitFlowStatement(FlowStatement $expr);
     public function visitCallStatement(CallStatement $expr);
     public function visitFunctionDclStatement(FunctionDclStatement $expr);
+    public function visitClassDclStatement(ClassDclStatement $expr);
+    public function visitInstanceExpression(InstanceExpression $expr);
 }
