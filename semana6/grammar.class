@@ -18,7 +18,7 @@ class grammar extends lime_parser {
   public $i = array(
     array(
       'stmts' => 's 1',
-      'pgrm' => 's 93',
+      'pgrm' => 's 107',
       "'start'" => "a 'start'",
       'print' => 'r 1',
       'var' => 'r 1',
@@ -39,24 +39,24 @@ class grammar extends lime_parser {
     array(
       'stmt' => 's 2',
       'print' => 's 3',
-      'var' => 's 45',
-      'id' => 's 50',
-      'if' => 's 54',
-      'while' => 's 63',
-      'func' => 's 68',
-      'continue' => 's 78',
-      'break' => 's 80',
-      'retStatement' => 's 82',
-      'postfix' => 's 84',
-      'block' => 's 89',
-      'return' => 's 90',
-      "'{'" => 's 61',
-      'primitive' => 's 32',
-      'num' => 's 33',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38',
+      'var' => 's 59',
+      'id' => 's 64',
+      'if' => 's 68',
+      'while' => 's 77',
+      'func' => 's 82',
+      'continue' => 's 92',
+      'break' => 's 94',
+      'retStatement' => 's 96',
+      'postfix' => 's 98',
+      'block' => 's 103',
+      'return' => 's 104',
+      "'{'" => 's 75',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
       '#' => 'r 0'
     ),
     array(
@@ -87,13 +87,16 @@ class grammar extends lime_parser {
       "'-'" => 's 25',
       "'!'" => 's 27',
       "'('" => 's 29',
-      'primitive' => 's 32',
-      'num' => 's 33',
-      'id' => 's 34',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38'
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47'
     ),
     array(
       "')'" => 's 6',
@@ -127,18 +130,21 @@ class grammar extends lime_parser {
     ),
     array(
       'postfix' => 's 9',
-      'exp' => 's 44',
+      'exp' => 's 58',
       "'+'" => 's 23',
       "'-'" => 's 25',
       "'!'" => 's 27',
       "'('" => 's 29',
-      'primitive' => 's 32',
-      'num' => 's 33',
-      'id' => 's 34',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38'
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47'
     ),
     array(
       "'('" => 's 10',
@@ -149,8 +155,10 @@ class grammar extends lime_parser {
       "'*'" => 'r 18',
       "'='" => 'r 18',
       "')'" => 'r 18',
+      "']'" => 'r 18',
       "';'" => 'r 18',
-      "','" => 'r 18'
+      "','" => 'r 18',
+      "'}'" => 'r 18'
     ),
     array(
       'postfix' => 's 9',
@@ -159,16 +167,19 @@ class grammar extends lime_parser {
       "'-'" => 's 25',
       "'!'" => 's 27',
       "'('" => 's 29',
-      'primitive' => 's 32',
-      'args' => 's 39',
-      'num' => 's 33',
-      'id' => 's 34',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38',
-      'arg_list' => 's 41',
-      "')'" => 'r 41'
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'args' => 's 56',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47',
+      'arg_list' => 's 53',
+      "')'" => 'r 47'
     ),
     array(
       "'<'" => 's 8',
@@ -177,8 +188,9 @@ class grammar extends lime_parser {
       "'-'" => 's 16',
       "'*'" => 's 18',
       "'='" => 's 20',
-      "','" => 'r 43',
-      "')'" => 'r 43'
+      "','" => 'r 49',
+      "')'" => 'r 49',
+      "'}'" => 'r 49'
     ),
     array(
       'postfix' => 's 9',
@@ -187,13 +199,16 @@ class grammar extends lime_parser {
       "'-'" => 's 25',
       "'!'" => 's 27',
       "'('" => 's 29',
-      'primitive' => 's 32',
-      'num' => 's 33',
-      'id' => 's 34',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38'
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47'
     ),
     array(
       "'+'" => 's 14',
@@ -201,8 +216,10 @@ class grammar extends lime_parser {
       "'*'" => 's 18',
       "'='" => 's 20',
       "')'" => 'r 20',
+      "']'" => 'r 20',
       "';'" => 'r 20',
-      "','" => 'r 20'
+      "','" => 'r 20',
+      "'}'" => 'r 20'
     ),
     array(
       'postfix' => 's 9',
@@ -211,13 +228,16 @@ class grammar extends lime_parser {
       "'-'" => 's 25',
       "'!'" => 's 27',
       "'('" => 's 29',
-      'primitive' => 's 32',
-      'num' => 's 33',
-      'id' => 's 34',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38'
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47'
     ),
     array(
       "'<'" => 'r 21',
@@ -227,8 +247,10 @@ class grammar extends lime_parser {
       "'*'" => 's 18',
       "'='" => 's 20',
       "')'" => 'r 21',
+      "']'" => 'r 21',
       "';'" => 'r 21',
-      "','" => 'r 21'
+      "','" => 'r 21',
+      "'}'" => 'r 21'
     ),
     array(
       'postfix' => 's 9',
@@ -237,13 +259,16 @@ class grammar extends lime_parser {
       "'-'" => 's 25',
       "'!'" => 's 27',
       "'('" => 's 29',
-      'primitive' => 's 32',
-      'num' => 's 33',
-      'id' => 's 34',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38'
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47'
     ),
     array(
       "'<'" => 'r 22',
@@ -253,8 +278,10 @@ class grammar extends lime_parser {
       "'*'" => 's 18',
       "'='" => 's 20',
       "')'" => 'r 22',
+      "']'" => 'r 22',
       "';'" => 'r 22',
-      "','" => 'r 22'
+      "','" => 'r 22',
+      "'}'" => 'r 22'
     ),
     array(
       'postfix' => 's 9',
@@ -263,13 +290,16 @@ class grammar extends lime_parser {
       "'-'" => 's 25',
       "'!'" => 's 27',
       "'('" => 's 29',
-      'primitive' => 's 32',
-      'num' => 's 33',
-      'id' => 's 34',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38'
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47'
     ),
     array(
       "'<'" => 'r 23',
@@ -279,8 +309,10 @@ class grammar extends lime_parser {
       "'*'" => 'r 23',
       "'='" => 's 20',
       "')'" => 'r 23',
+      "']'" => 'r 23',
       "';'" => 'r 23',
-      "','" => 'r 23'
+      "','" => 'r 23',
+      "'}'" => 'r 23'
     ),
     array(
       "'='" => 's 21'
@@ -292,13 +324,16 @@ class grammar extends lime_parser {
       "'-'" => 's 25',
       "'!'" => 's 27',
       "'('" => 's 29',
-      'primitive' => 's 32',
-      'num' => 's 33',
-      'id' => 's 34',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38'
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47'
     ),
     array(
       "'<'" => 's 8',
@@ -308,8 +343,10 @@ class grammar extends lime_parser {
       "'*'" => 's 18',
       "'='" => 's 20',
       "')'" => 'r 24',
+      "']'" => 'r 24',
       "';'" => 'r 24',
-      "','" => 'r 24'
+      "','" => 'r 24',
+      "'}'" => 'r 24'
     ),
     array(
       'postfix' => 's 9',
@@ -318,13 +355,16 @@ class grammar extends lime_parser {
       "'-'" => 's 25',
       "'!'" => 's 27',
       "'('" => 's 29',
-      'primitive' => 's 32',
-      'num' => 's 33',
-      'id' => 's 34',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38'
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47'
     ),
     array(
       "'<'" => 'r 25',
@@ -334,8 +374,10 @@ class grammar extends lime_parser {
       "'*'" => 'r 25',
       "'='" => 's 20',
       "')'" => 'r 25',
+      "']'" => 'r 25',
       "';'" => 'r 25',
-      "','" => 'r 25'
+      "','" => 'r 25',
+      "'}'" => 'r 25'
     ),
     array(
       'postfix' => 's 9',
@@ -344,13 +386,16 @@ class grammar extends lime_parser {
       "'-'" => 's 25',
       "'!'" => 's 27',
       "'('" => 's 29',
-      'primitive' => 's 32',
-      'num' => 's 33',
-      'id' => 's 34',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38'
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47'
     ),
     array(
       "'<'" => 'r 26',
@@ -360,8 +405,10 @@ class grammar extends lime_parser {
       "'*'" => 'r 26',
       "'='" => 's 20',
       "')'" => 'r 26',
+      "']'" => 'r 26',
       "';'" => 'r 26',
-      "','" => 'r 26'
+      "','" => 'r 26',
+      "'}'" => 'r 26'
     ),
     array(
       'postfix' => 's 9',
@@ -370,13 +417,16 @@ class grammar extends lime_parser {
       "'-'" => 's 25',
       "'!'" => 's 27',
       "'('" => 's 29',
-      'primitive' => 's 32',
-      'num' => 's 33',
-      'id' => 's 34',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38'
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47'
     ),
     array(
       "'<'" => 'r 27',
@@ -386,8 +436,10 @@ class grammar extends lime_parser {
       "'*'" => 'r 27',
       "'='" => 's 20',
       "')'" => 'r 27',
+      "']'" => 'r 27',
       "';'" => 'r 27',
-      "','" => 'r 27'
+      "','" => 'r 27',
+      "'}'" => 'r 27'
     ),
     array(
       'postfix' => 's 9',
@@ -396,13 +448,16 @@ class grammar extends lime_parser {
       "'-'" => 's 25',
       "'!'" => 's 27',
       "'('" => 's 29',
-      'primitive' => 's 32',
-      'num' => 's 33',
-      'id' => 's 34',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38'
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47'
     ),
     array(
       "'<'" => 's 8',
@@ -421,20 +476,94 @@ class grammar extends lime_parser {
       "'+'" => 'r 28',
       "'>'" => 'r 28',
       "'<'" => 'r 28',
+      "']'" => 'r 28',
       "';'" => 'r 28',
-      "','" => 'r 28'
+      "','" => 'r 28',
+      "'}'" => 'r 28'
     ),
     array(
-      "'('" => 'r 29',
-      "'<'" => 'r 29',
-      "'>'" => 'r 29',
-      "'+'" => 'r 29',
-      "'-'" => 'r 29',
-      "'*'" => 'r 29',
-      "'='" => 'r 29',
       "')'" => 'r 29',
+      "'='" => 'r 29',
+      "'*'" => 'r 29',
+      "'-'" => 'r 29',
+      "'+'" => 'r 29',
+      "'>'" => 'r 29',
+      "'<'" => 'r 29',
+      "']'" => 'r 29',
       "';'" => 'r 29',
-      "','" => 'r 29'
+      "','" => 'r 29',
+      "'}'" => 'r 29'
+    ),
+    array(
+      'dimensions' => 's 34',
+      "'['" => 's 50',
+      "'('" => 'r 34',
+      "'<'" => 'r 34',
+      "'>'" => 'r 34',
+      "'+'" => 'r 34',
+      "'-'" => 'r 34',
+      "'*'" => 'r 34',
+      "'='" => 'r 34',
+      "')'" => 'r 34',
+      "']'" => 'r 34',
+      "';'" => 'r 34',
+      "','" => 'r 34',
+      "'}'" => 'r 34'
+    ),
+    array(
+      "'['" => 's 35',
+      "')'" => 'r 30',
+      "'='" => 'r 30',
+      "'*'" => 'r 30',
+      "'-'" => 'r 30',
+      "'+'" => 'r 30',
+      "'>'" => 'r 30',
+      "'<'" => 'r 30',
+      "']'" => 'r 30',
+      "';'" => 'r 30',
+      "','" => 'r 30',
+      "'}'" => 'r 30'
+    ),
+    array(
+      'postfix' => 's 9',
+      'exp' => 's 36',
+      "'+'" => 's 23',
+      "'-'" => 's 25',
+      "'!'" => 's 27',
+      "'('" => 's 29',
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47'
+    ),
+    array(
+      "'<'" => 's 8',
+      "'>'" => 's 12',
+      "'+'" => 's 14',
+      "'-'" => 's 16',
+      "'*'" => 's 18',
+      "'='" => 's 20',
+      "']'" => 's 37'
+    ),
+    array(
+      "'['" => 'r 44',
+      "')'" => 'r 44',
+      "'='" => 'r 44',
+      "'*'" => 'r 44',
+      "'-'" => 'r 44',
+      "'+'" => 'r 44',
+      "'>'" => 'r 44',
+      "'<'" => 'r 44',
+      "']'" => 'r 44',
+      "';'" => 'r 44',
+      "','" => 'r 44',
+      "'}'" => 'r 44'
     ),
     array(
       "'('" => 'r 31',
@@ -445,20 +574,10 @@ class grammar extends lime_parser {
       "'*'" => 'r 31',
       "'='" => 'r 31',
       "')'" => 'r 31',
+      "']'" => 'r 31',
       "';'" => 'r 31',
-      "','" => 'r 31'
-    ),
-    array(
-      "'('" => 'r 32',
-      "'<'" => 'r 32',
-      "'>'" => 'r 32',
-      "'+'" => 'r 32',
-      "'-'" => 'r 32',
-      "'*'" => 'r 32',
-      "'='" => 'r 32',
-      "')'" => 'r 32',
-      "';'" => 'r 32',
-      "','" => 'r 32'
+      "','" => 'r 31',
+      "'}'" => 'r 31'
     ),
     array(
       "'('" => 'r 33',
@@ -469,20 +588,10 @@ class grammar extends lime_parser {
       "'*'" => 'r 33',
       "'='" => 'r 33',
       "')'" => 'r 33',
+      "']'" => 'r 33',
       "';'" => 'r 33',
-      "','" => 'r 33'
-    ),
-    array(
-      "'('" => 'r 34',
-      "'<'" => 'r 34',
-      "'>'" => 'r 34',
-      "'+'" => 'r 34',
-      "'-'" => 'r 34',
-      "'*'" => 'r 34',
-      "'='" => 'r 34',
-      "')'" => 'r 34',
-      "';'" => 'r 34',
-      "','" => 'r 34'
+      "','" => 'r 33',
+      "'}'" => 'r 33'
     ),
     array(
       "'('" => 'r 35',
@@ -493,8 +602,10 @@ class grammar extends lime_parser {
       "'*'" => 'r 35',
       "'='" => 'r 35',
       "')'" => 'r 35',
+      "']'" => 'r 35',
       "';'" => 'r 35',
-      "','" => 'r 35'
+      "','" => 'r 35',
+      "'}'" => 'r 35'
     ),
     array(
       "'('" => 'r 36',
@@ -505,42 +616,114 @@ class grammar extends lime_parser {
       "'*'" => 'r 36',
       "'='" => 'r 36',
       "')'" => 'r 36',
+      "']'" => 'r 36',
       "';'" => 'r 36',
-      "','" => 'r 36'
+      "','" => 'r 36',
+      "'}'" => 'r 36'
     ),
     array(
-      "')'" => 's 40'
+      "'('" => 'r 37',
+      "'<'" => 'r 37',
+      "'>'" => 'r 37',
+      "'+'" => 'r 37',
+      "'-'" => 'r 37',
+      "'*'" => 'r 37',
+      "'='" => 'r 37',
+      "')'" => 'r 37',
+      "']'" => 'r 37',
+      "';'" => 'r 37',
+      "','" => 'r 37',
+      "'}'" => 'r 37'
     ),
     array(
-      "'('" => 'r 30',
-      "'<'" => 'r 30',
-      "'>'" => 'r 30',
-      "'+'" => 'r 30',
-      "'-'" => 'r 30',
-      "'*'" => 'r 30',
-      "'='" => 'r 30',
-      "')'" => 'r 30',
-      "';'" => 'r 30',
-      "','" => 'r 30'
-    ),
-    array(
-      "','" => 's 42',
-      "')'" => 'r 42'
+      "'('" => 'r 38',
+      "'<'" => 'r 38',
+      "'>'" => 'r 38',
+      "'+'" => 'r 38',
+      "'-'" => 'r 38',
+      "'*'" => 'r 38',
+      "'='" => 'r 38',
+      "')'" => 'r 38',
+      "']'" => 'r 38',
+      "';'" => 'r 38',
+      "','" => 'r 38',
+      "'}'" => 'r 38'
     ),
     array(
       'postfix' => 's 9',
-      'exp' => 's 43',
+      'exp' => 's 11',
       "'+'" => 's 23',
       "'-'" => 's 25',
       "'!'" => 's 27',
       "'('" => 's 29',
-      'primitive' => 's 32',
-      'num' => 's 33',
-      'id' => 's 34',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38'
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'args' => 's 45',
+      'new' => 's 47',
+      'arg_list' => 's 53',
+      "'}'" => 'r 47'
+    ),
+    array(
+      "'}'" => 's 46'
+    ),
+    array(
+      "')'" => 'r 41',
+      "'='" => 'r 41',
+      "'*'" => 'r 41',
+      "'-'" => 'r 41',
+      "'+'" => 'r 41',
+      "'>'" => 'r 41',
+      "'<'" => 'r 41',
+      "']'" => 'r 41',
+      "';'" => 'r 41',
+      "','" => 'r 41',
+      "'}'" => 'r 41'
+    ),
+    array(
+      'var' => 's 48'
+    ),
+    array(
+      'dimensions' => 's 49',
+      "'['" => 's 50'
+    ),
+    array(
+      "'['" => 's 35',
+      "')'" => 'r 42',
+      "'='" => 'r 42',
+      "'*'" => 'r 42',
+      "'-'" => 'r 42',
+      "'+'" => 'r 42',
+      "'>'" => 'r 42',
+      "'<'" => 'r 42',
+      "']'" => 'r 42',
+      "';'" => 'r 42',
+      "','" => 'r 42',
+      "'}'" => 'r 42'
+    ),
+    array(
+      'postfix' => 's 9',
+      'exp' => 's 51',
+      "'+'" => 's 23',
+      "'-'" => 's 25',
+      "'!'" => 's 27',
+      "'('" => 's 29',
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47'
     ),
     array(
       "'<'" => 's 8',
@@ -549,8 +732,72 @@ class grammar extends lime_parser {
       "'-'" => 's 16',
       "'*'" => 's 18',
       "'='" => 's 20',
-      "','" => 'r 44',
-      "')'" => 'r 44'
+      "']'" => 's 52'
+    ),
+    array(
+      "'['" => 'r 43',
+      "')'" => 'r 43',
+      "'='" => 'r 43',
+      "'*'" => 'r 43',
+      "'-'" => 'r 43',
+      "'+'" => 'r 43',
+      "'>'" => 'r 43',
+      "'<'" => 'r 43',
+      "']'" => 'r 43',
+      "';'" => 'r 43',
+      "','" => 'r 43',
+      "'}'" => 'r 43'
+    ),
+    array(
+      "','" => 's 54',
+      "')'" => 'r 48',
+      "'}'" => 'r 48'
+    ),
+    array(
+      'postfix' => 's 9',
+      'exp' => 's 55',
+      "'+'" => 's 23',
+      "'-'" => 's 25',
+      "'!'" => 's 27',
+      "'('" => 's 29',
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47'
+    ),
+    array(
+      "'<'" => 's 8',
+      "'>'" => 's 12',
+      "'+'" => 's 14',
+      "'-'" => 's 16',
+      "'*'" => 's 18',
+      "'='" => 's 20',
+      "','" => 'r 50',
+      "')'" => 'r 50',
+      "'}'" => 'r 50'
+    ),
+    array(
+      "')'" => 's 57'
+    ),
+    array(
+      "'('" => 'r 32',
+      "'<'" => 'r 32',
+      "'>'" => 'r 32',
+      "'+'" => 'r 32',
+      "'-'" => 'r 32',
+      "'*'" => 'r 32',
+      "'='" => 'r 32',
+      "')'" => 'r 32',
+      "']'" => 'r 32',
+      "';'" => 'r 32',
+      "','" => 'r 32',
+      "'}'" => 'r 32'
     ),
     array(
       "'+'" => 's 14',
@@ -558,32 +805,37 @@ class grammar extends lime_parser {
       "'*'" => 's 18',
       "'='" => 's 20',
       "')'" => 'r 19',
+      "']'" => 'r 19',
       "';'" => 'r 19',
-      "','" => 'r 19'
+      "','" => 'r 19',
+      "'}'" => 'r 19'
     ),
     array(
-      'id' => 's 46'
+      'id' => 's 60'
     ),
     array(
-      "'='" => 's 47'
+      "'='" => 's 61'
     ),
     array(
-      'exp' => 's 48',
+      'exp' => 's 62',
       'postfix' => 's 9',
       "'+'" => 's 23',
       "'-'" => 's 25',
       "'!'" => 's 27',
       "'('" => 's 29',
-      'primitive' => 's 32',
-      'num' => 's 33',
-      'id' => 's 34',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38'
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47'
     ),
     array(
-      "';'" => 's 49',
+      "';'" => 's 63',
       "'<'" => 's 8',
       "'>'" => 's 12',
       "'+'" => 's 14',
@@ -610,26 +862,29 @@ class grammar extends lime_parser {
       '#' => 'r 4'
     ),
     array(
-      "'='" => 's 51',
-      "'('" => 'r 32'
+      "'='" => 's 65',
+      "'('" => 'r 34'
     ),
     array(
-      'exp' => 's 52',
+      'exp' => 's 66',
       'postfix' => 's 9',
       "'+'" => 's 23',
       "'-'" => 's 25',
       "'!'" => 's 27',
       "'('" => 's 29',
-      'primitive' => 's 32',
-      'num' => 's 33',
-      'id' => 's 34',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38'
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47'
     ),
     array(
-      "';'" => 's 53',
+      "';'" => 's 67',
       "'<'" => 's 8',
       "'>'" => 's 12',
       "'+'" => 's 14',
@@ -656,25 +911,28 @@ class grammar extends lime_parser {
       '#' => 'r 5'
     ),
     array(
-      "'('" => 's 55'
+      "'('" => 's 69'
     ),
     array(
-      'exp' => 's 56',
+      'exp' => 's 70',
       'postfix' => 's 9',
       "'+'" => 's 23',
       "'-'" => 's 25',
       "'!'" => 's 27',
       "'('" => 's 29',
-      'primitive' => 's 32',
-      'num' => 's 33',
-      'id' => 's 34',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38'
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47'
     ),
     array(
-      "')'" => 's 57',
+      "')'" => 's 71',
       "'<'" => 's 8',
       "'>'" => 's 12',
       "'+'" => 's 14',
@@ -683,11 +941,11 @@ class grammar extends lime_parser {
       "'='" => 's 20'
     ),
     array(
-      'block' => 's 58',
-      "'{'" => 's 61'
+      'block' => 's 72',
+      "'{'" => 's 75'
     ),
     array(
-      'else' => 's 59',
+      'else' => 's 73',
       'print' => 'r 6',
       'var' => 'r 6',
       'id' => 'r 6',
@@ -706,8 +964,8 @@ class grammar extends lime_parser {
       '#' => 'r 6'
     ),
     array(
-      'block' => 's 60',
-      "'{'" => 's 61'
+      'block' => 's 74',
+      "'{'" => 's 75'
     ),
     array(
       'print' => 'r 7',
@@ -728,7 +986,7 @@ class grammar extends lime_parser {
       '#' => 'r 7'
     ),
     array(
-      'stmts' => 's 62',
+      'stmts' => 's 76',
       'print' => 'r 1',
       'var' => 'r 1',
       'id' => 'r 1',
@@ -748,46 +1006,49 @@ class grammar extends lime_parser {
     array(
       'stmt' => 's 2',
       'print' => 's 3',
-      'var' => 's 45',
-      'id' => 's 50',
-      'if' => 's 54',
-      'while' => 's 63',
-      'func' => 's 68',
-      'continue' => 's 78',
-      'break' => 's 80',
-      'retStatement' => 's 82',
-      'postfix' => 's 84',
-      'block' => 's 89',
-      'return' => 's 90',
-      "'{'" => 's 61',
-      "'}'" => 's 92',
-      'primitive' => 's 32',
-      'num' => 's 33',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38'
+      'var' => 's 59',
+      'id' => 's 64',
+      'if' => 's 68',
+      'while' => 's 77',
+      'func' => 's 82',
+      'continue' => 's 92',
+      'break' => 's 94',
+      'retStatement' => 's 96',
+      'postfix' => 's 98',
+      'block' => 's 103',
+      'return' => 's 104',
+      "'{'" => 's 75',
+      "'}'" => 's 106',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43'
     ),
     array(
-      "'('" => 's 64'
+      "'('" => 's 78'
     ),
     array(
-      'exp' => 's 65',
+      'exp' => 's 79',
       'postfix' => 's 9',
       "'+'" => 's 23',
       "'-'" => 's 25',
       "'!'" => 's 27',
       "'('" => 's 29',
-      'primitive' => 's 32',
-      'num' => 's 33',
-      'id' => 's 34',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38'
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47'
     ),
     array(
-      "')'" => 's 66',
+      "')'" => 's 80',
       "'<'" => 's 8',
       "'>'" => 's 12',
       "'+'" => 's 14',
@@ -796,8 +1057,8 @@ class grammar extends lime_parser {
       "'='" => 's 20'
     ),
     array(
-      'block' => 's 67',
-      "'{'" => 's 61'
+      'block' => 's 81',
+      "'{'" => 's 75'
     ),
     array(
       'print' => 'r 8',
@@ -818,23 +1079,23 @@ class grammar extends lime_parser {
       '#' => 'r 8'
     ),
     array(
-      'id' => 's 69'
+      'id' => 's 83'
     ),
     array(
-      "'('" => 's 70'
+      "'('" => 's 84'
     ),
     array(
-      'params' => 's 71',
-      'param_list' => 's 74',
-      'id' => 's 77',
-      "')'" => 'r 37'
+      'params' => 's 85',
+      'param_list' => 's 88',
+      'id' => 's 91',
+      "')'" => 'r 39'
     ),
     array(
-      "')'" => 's 72'
+      "')'" => 's 86'
     ),
     array(
-      'block' => 's 73',
-      "'{'" => 's 61'
+      'block' => 's 87',
+      "'{'" => 's 75'
     ),
     array(
       'print' => 'r 9',
@@ -855,22 +1116,22 @@ class grammar extends lime_parser {
       '#' => 'r 9'
     ),
     array(
-      "','" => 's 75',
-      "')'" => 'r 38'
-    ),
-    array(
-      'id' => 's 76'
-    ),
-    array(
-      "','" => 'r 40',
+      "','" => 's 89',
       "')'" => 'r 40'
     ),
     array(
-      "','" => 'r 39',
-      "')'" => 'r 39'
+      'id' => 's 90'
     ),
     array(
-      "';'" => 's 79'
+      "','" => 'r 46',
+      "')'" => 'r 46'
+    ),
+    array(
+      "','" => 'r 45',
+      "')'" => 'r 45'
+    ),
+    array(
+      "';'" => 's 93'
     ),
     array(
       'print' => 'r 10',
@@ -891,7 +1152,7 @@ class grammar extends lime_parser {
       '#' => 'r 10'
     ),
     array(
-      "';'" => 's 81'
+      "';'" => 's 95'
     ),
     array(
       'print' => 'r 11',
@@ -912,7 +1173,7 @@ class grammar extends lime_parser {
       '#' => 'r 11'
     ),
     array(
-      "';'" => 's 83'
+      "';'" => 's 97'
     ),
     array(
       'print' => 'r 12',
@@ -933,32 +1194,35 @@ class grammar extends lime_parser {
       '#' => 'r 12'
     ),
     array(
-      "'('" => 's 85'
+      "'('" => 's 99'
     ),
     array(
-      'args' => 's 86',
+      'args' => 's 100',
       'postfix' => 's 9',
       'exp' => 's 11',
       "'+'" => 's 23',
       "'-'" => 's 25',
       "'!'" => 's 27',
       "'('" => 's 29',
-      'primitive' => 's 32',
-      'num' => 's 33',
-      'id' => 's 34',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38',
-      'arg_list' => 's 41',
-      "')'" => 'r 41'
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47',
+      'arg_list' => 's 53',
+      "')'" => 'r 47'
     ),
     array(
-      "')'" => 's 87'
+      "')'" => 's 101'
     ),
     array(
-      "';'" => 's 88',
-      "'('" => 'r 30'
+      "';'" => 's 102',
+      "'('" => 'r 32'
     ),
     array(
       'print' => 'r 13',
@@ -997,19 +1261,22 @@ class grammar extends lime_parser {
       '#' => 'r 14'
     ),
     array(
-      'exp' => 's 91',
+      'exp' => 's 105',
       'postfix' => 's 9',
       "'+'" => 's 23',
       "'-'" => 's 25',
       "'!'" => 's 27',
       "'('" => 's 29',
-      'primitive' => 's 32',
-      'num' => 's 33',
-      'id' => 's 34',
-      'string' => 's 35',
-      'boolean' => 's 36',
-      'true' => 's 37',
-      'false' => 's 38',
+      'array_exp' => 's 32',
+      'id' => 's 33',
+      'primitive' => 's 38',
+      'num' => 's 39',
+      'string' => 's 40',
+      'boolean' => 's 41',
+      'true' => 's 42',
+      'false' => 's 43',
+      "'{'" => 's 44',
+      'new' => 's 47',
       "';'" => 'r 15'
     ),
     array(
@@ -1041,7 +1308,7 @@ class grammar extends lime_parser {
       '#' => 'r 17'
     ),
     array(
-      '#' => 'r 45'
+      '#' => 'r 51'
     )
   );
   public $d = array(
@@ -1262,122 +1529,165 @@ class grammar extends lime_parser {
     $result = new AgroupedExpression($tokens[1], $tokens[1]->location);
   }
 
-  function reduce_29_postfix_1($tokens, &$result) {
-    // (29) postfix :=  primitive
+  function reduce_29_exp_12($tokens, &$result) {
+    // (29) exp :=  array_exp
     $result = reset($tokens);
 
     $result = $tokens[0];
   }
 
-  function reduce_30_postfix_2($tokens, &$result) {
-    // (30) postfix :=  postfix  '('  args  ')'
+  function reduce_30_exp_13($tokens, &$result) {
+    // (30) exp :=  id  dimensions
+    $result = reset($tokens);
+
+    $result = new RefVarStatement($tokens[0]['value'], $tokens[1], $tokens[0]['location']);
+  }
+
+  function reduce_31_postfix_1($tokens, &$result) {
+    // (31) postfix :=  primitive
+    $result = reset($tokens);
+
+    $result = $tokens[0];
+  }
+
+  function reduce_32_postfix_2($tokens, &$result) {
+    // (32) postfix :=  postfix  '('  args  ')'
     $result = reset($tokens);
 
     $result = new CallStatement($tokens[0], $tokens[2], $tokens[0]->location);
   }
 
-  function reduce_31_primitive_1($tokens, &$result) {
-    // (31) primitive :=  num
+  function reduce_33_primitive_1($tokens, &$result) {
+    // (33) primitive :=  num
     $result = reset($tokens);
 
     $result = new NumberExpression($tokens[0]['value'], $tokens[0]['location']);
   }
 
-  function reduce_32_primitive_2($tokens, &$result) {
-    // (32) primitive :=  id
+  function reduce_34_primitive_2($tokens, &$result) {
+    // (34) primitive :=  id
     $result = reset($tokens);
 
-    $result = new RefVarStatement($tokens[0]['value'], $tokens[0]['location']);
+    $result = new RefVarStatement($tokens[0]['value'], null, $tokens[0]['location']);
   }
 
-  function reduce_33_primitive_3($tokens, &$result) {
-    // (33) primitive :=  string
+  function reduce_35_primitive_3($tokens, &$result) {
+    // (35) primitive :=  string
     $result = reset($tokens);
 
     $result = new StringExpression($tokens[0]['value'], $tokens[0]['location']);
   }
 
-  function reduce_34_primitive_4($tokens, &$result) {
-    // (34) primitive :=  boolean
+  function reduce_36_primitive_4($tokens, &$result) {
+    // (36) primitive :=  boolean
     $result = reset($tokens);
 
     $result = $tokens[0];
   }
 
-  function reduce_35_boolean_1($tokens, &$result) {
-    // (35) boolean :=  true
+  function reduce_37_boolean_1($tokens, &$result) {
+    // (37) boolean :=  true
     $result = reset($tokens);
 
     $result = new BooleanExpression($tokens[0]['value'], $tokens[0]['location']);
   }
 
-  function reduce_36_boolean_2($tokens, &$result) {
-    // (36) boolean :=  false
+  function reduce_38_boolean_2($tokens, &$result) {
+    // (38) boolean :=  false
     $result = reset($tokens);
 
     $result = new BooleanExpression($tokens[0]['value'], $tokens[0]['location']);
   }
 
-  function reduce_37_params_1($tokens, &$result) {
-    // (37) params :=  ε
+  function reduce_39_params_1($tokens, &$result) {
+    // (39) params :=  ε
     $result = reset($tokens);
 
     $result = array();
   }
 
-  function reduce_38_params_2($tokens, &$result) {
-    // (38) params :=  param_list
+  function reduce_40_params_2($tokens, &$result) {
+    // (40) params :=  param_list
     $result = reset($tokens);
 
     $result = $tokens[0];
   }
 
-  function reduce_39_param_list_1($tokens, &$result) {
-    // (39) param_list :=  id
+  function reduce_41_array_exp_1($tokens, &$result) {
+    // (41) array_exp :=  '{'  args  '}'
     $result = reset($tokens);
 
-    $result = array($tokens[0]['value']);
+    $result = new ArrayExpression($tokens[1], null, $tokens[0]['location']);
   }
 
-  function reduce_40_param_list_2($tokens, &$result) {
-    // (40) param_list :=  param_list  ','  id
+  function reduce_42_array_exp_2($tokens, &$result) {
+    // (42) array_exp :=  new  var  dimensions
     $result = reset($tokens);
 
-    $tokens[0][] = $tokens[2]['value'];
-    $result = $tokens[0];
+    $result = new ArrayExpression(null, $tokens[2], $tokens[0]['location']);
   }
 
-  function reduce_41_args_1($tokens, &$result) {
-    // (41) args :=  ε
+  function reduce_43_dimensions_1($tokens, &$result) {
+    // (43) dimensions :=  '['  exp  ']'
     $result = reset($tokens);
 
-    $result = array();
+    $result = array($tokens[1]);
   }
 
-  function reduce_42_args_2($tokens, &$result) {
-    // (42) args :=  arg_list
-    $result = reset($tokens);
-
-    $result = $tokens[0];
-  }
-
-  function reduce_43_arg_list_1($tokens, &$result) {
-    // (43) arg_list :=  exp
-    $result = reset($tokens);
-
-    $result = array($tokens[0]);
-  }
-
-  function reduce_44_arg_list_2($tokens, &$result) {
-    // (44) arg_list :=  arg_list  ','  exp
+  function reduce_44_dimensions_2($tokens, &$result) {
+    // (44) dimensions :=  dimensions  '['  exp  ']'
     $result = reset($tokens);
 
     $tokens[0][] = $tokens[2];
     $result = $tokens[0];
   }
 
-  function reduce_45_start_1($tokens, &$result) {
-    // (45) 'start' :=  pgrm
+  function reduce_45_param_list_1($tokens, &$result) {
+    // (45) param_list :=  id
+    $result = reset($tokens);
+
+    $result = array($tokens[0]['value']);
+  }
+
+  function reduce_46_param_list_2($tokens, &$result) {
+    // (46) param_list :=  param_list  ','  id
+    $result = reset($tokens);
+
+    $tokens[0][] = $tokens[2]['value'];
+    $result = $tokens[0];
+  }
+
+  function reduce_47_args_1($tokens, &$result) {
+    // (47) args :=  ε
+    $result = reset($tokens);
+
+    $result = array();
+  }
+
+  function reduce_48_args_2($tokens, &$result) {
+    // (48) args :=  arg_list
+    $result = reset($tokens);
+
+    $result = $tokens[0];
+  }
+
+  function reduce_49_arg_list_1($tokens, &$result) {
+    // (49) arg_list :=  exp
+    $result = reset($tokens);
+
+    $result = array($tokens[0]);
+  }
+
+  function reduce_50_arg_list_2($tokens, &$result) {
+    // (50) arg_list :=  arg_list  ','  exp
+    $result = reset($tokens);
+
+    $tokens[0][] = $tokens[2];
+    $result = $tokens[0];
+  }
+
+  function reduce_51_start_1($tokens, &$result) {
+    // (51) 'start' :=  pgrm
     $result = reset($tokens);
   }
 
@@ -1411,23 +1721,29 @@ class grammar extends lime_parser {
     'reduce_26_exp_9',
     'reduce_27_exp_10',
     'reduce_28_exp_11',
-    'reduce_29_postfix_1',
-    'reduce_30_postfix_2',
-    'reduce_31_primitive_1',
-    'reduce_32_primitive_2',
-    'reduce_33_primitive_3',
-    'reduce_34_primitive_4',
-    'reduce_35_boolean_1',
-    'reduce_36_boolean_2',
-    'reduce_37_params_1',
-    'reduce_38_params_2',
-    'reduce_39_param_list_1',
-    'reduce_40_param_list_2',
-    'reduce_41_args_1',
-    'reduce_42_args_2',
-    'reduce_43_arg_list_1',
-    'reduce_44_arg_list_2',
-    'reduce_45_start_1'
+    'reduce_29_exp_12',
+    'reduce_30_exp_13',
+    'reduce_31_postfix_1',
+    'reduce_32_postfix_2',
+    'reduce_33_primitive_1',
+    'reduce_34_primitive_2',
+    'reduce_35_primitive_3',
+    'reduce_36_primitive_4',
+    'reduce_37_boolean_1',
+    'reduce_38_boolean_2',
+    'reduce_39_params_1',
+    'reduce_40_params_2',
+    'reduce_41_array_exp_1',
+    'reduce_42_array_exp_2',
+    'reduce_43_dimensions_1',
+    'reduce_44_dimensions_2',
+    'reduce_45_param_list_1',
+    'reduce_46_param_list_2',
+    'reduce_47_args_1',
+    'reduce_48_args_2',
+    'reduce_49_arg_list_1',
+    'reduce_50_arg_list_2',
+    'reduce_51_start_1'
   );
   public $a = array(
     array(
@@ -1576,6 +1892,16 @@ class grammar extends lime_parser {
       'replace' => true
     ),
     array(
+      'symbol' => 'exp',
+      'len' => 1,
+      'replace' => true
+    ),
+    array(
+      'symbol' => 'exp',
+      'len' => 2,
+      'replace' => true
+    ),
+    array(
       'symbol' => 'postfix',
       'len' => 1,
       'replace' => true
@@ -1626,6 +1952,26 @@ class grammar extends lime_parser {
       'replace' => true
     ),
     array(
+      'symbol' => 'array_exp',
+      'len' => 3,
+      'replace' => true
+    ),
+    array(
+      'symbol' => 'array_exp',
+      'len' => 3,
+      'replace' => true
+    ),
+    array(
+      'symbol' => 'dimensions',
+      'len' => 3,
+      'replace' => true
+    ),
+    array(
+      'symbol' => 'dimensions',
+      'len' => 4,
+      'replace' => true
+    ),
+    array(
       'symbol' => 'param_list',
       'len' => 1,
       'replace' => true
@@ -1663,5 +2009,5 @@ class grammar extends lime_parser {
   );
 }
 
-// Time: 0.031031131744385 seconds
-// Memory: 5616272 bytes
+// Time: 0.04221510887146 seconds
+// Memory: 6718264 bytes

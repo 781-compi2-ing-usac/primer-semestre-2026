@@ -1,12 +1,12 @@
 <?php
-class Expression {
+class Node {
     
     public function __construct($location) {
         $this->location = $location;
     }
 
     public function accept(Visitor $visitor) {
-        return $visitor->visitExpression($this);
+        return $visitor->visitNode($this);
     }
 
     public function __toString() {
@@ -14,7 +14,7 @@ class Expression {
     }
 }
 
-class UnaryExpression extends Expression {
+class UnaryExpression extends Node {
     public $operator;
     public $operand;
 
@@ -33,7 +33,7 @@ class UnaryExpression extends Expression {
     }
 }
 
-class BinaryExpression extends Expression {
+class BinaryExpression extends Node {
     public $left;
     public $operator;
     public $right;
@@ -54,7 +54,7 @@ class BinaryExpression extends Expression {
     }
 }
 
-class AgroupedExpression extends Expression {
+class AgroupedExpression extends Node {
     public $expression;
 
     public function __construct($expression, $location) {
@@ -71,7 +71,7 @@ class AgroupedExpression extends Expression {
     }
 }
 
-class NumberExpression extends Expression {
+class NumberExpression extends Node {
     public $value;
 
     public function __construct($value, $location) {
@@ -88,7 +88,7 @@ class NumberExpression extends Expression {
     }
 }
 
-class BooleanExpression extends Expression {
+class BooleanExpression extends Node {
     public $value;
     public function __construct($value, $location) {
         parent::__construct($location);
@@ -102,7 +102,7 @@ class BooleanExpression extends Expression {
     }
 }
 
-class StringExpression extends Expression {
+class StringExpression extends Node {
     public $value;
     public function __construct($value, $location) {
         parent::__construct($location);
@@ -116,7 +116,7 @@ class StringExpression extends Expression {
     }
 }
 
-class PrintStatement extends Expression {
+class PrintStatement extends Node {
     public $expression;
 
     public function __construct($expression, $location) {
@@ -133,7 +133,7 @@ class PrintStatement extends Expression {
     }
 }
 
-class VarDclStatement extends Expression {
+class VarDclStatement extends Node {
     public $id;
     public $expression;
     public function __construct($id, $expr, $location) {
@@ -149,7 +149,7 @@ class VarDclStatement extends Expression {
     }
 }
 
-class VarAssignStatement extends Expression {
+class VarAssignStatement extends Node {
     public $id;
     public $expr;
     public function __construct($id, $expr, $location) {
@@ -165,11 +165,13 @@ class VarAssignStatement extends Expression {
     }
 }
 
-class RefVarStatement extends Expression {
+class RefVarStatement extends Node {
     public $id;
-    public function __construct($id, $location) {
+    public $dimensions;
+    public function __construct($id, $dimensions=null, $location) {
         parent::__construct($location);
         $this->id = $id;
+        $this->dimensions = $dimensions;
     }
     public function accept(Visitor $visitor) {
         return $visitor->visitRefVarStatement($this);
@@ -179,7 +181,7 @@ class RefVarStatement extends Expression {
     }
 }
 
-class BlockStatement extends Expression {
+class BlockStatement extends Node {
     public $stmts;
     public function __construct($stmts, $location) {
         parent::__construct($location);
@@ -193,7 +195,7 @@ class BlockStatement extends Expression {
     }
 }
 
-class IfStatement extends Expression {
+class IfStatement extends Node {
     public $cond;
     public $machedBlock;
     public $elseBlock;
@@ -213,7 +215,7 @@ class IfStatement extends Expression {
     }
 }
 
-class WhileStatement extends Expression {
+class WhileStatement extends Node {
     public $cond;
     public $block;
     public function __construct($cond, $block, $location) {
@@ -229,7 +231,7 @@ class WhileStatement extends Expression {
     }
 }
 
-class FlowStatement extends Expression {
+class FlowStatement extends Node {
     public $type;
     public $retval;
     public function __construct($type, $retval=null, $location) {
@@ -245,7 +247,7 @@ class FlowStatement extends Expression {
     }
 }
 
-class CallStatement extends Expression {
+class CallStatement extends Node {
     public $callee;
     public $args;
     public function __construct($callee, $args=null, $location) {
@@ -261,7 +263,7 @@ class CallStatement extends Expression {
     }
 }
 
-class FunctionDclStatement extends Expression {
+class FunctionDclStatement extends Node {
     public $id;
     public $params;
     public $block;
@@ -279,33 +281,18 @@ class FunctionDclStatement extends Expression {
     }
 }
 
-class ClassDclStatement extends Expression {
-    public $id;
-    public $block;
-    public function __construct($id, $location) {
+class ArrayExpression extends Node {
+    public $values;    
+    public $dimensions;
+    public function __construct($values, $dimensions, $location) {
         parent::__construct($location);
-        $this->id = $id;
+        $this->values = $values;        
+        $this->dimensions = $dimensions;
     }
     public function accept(Visitor $visitor) {
-        return $visitor->visitClassDclStatement($this);
+        return $visitor->visitArrayExpression($this);
     }
-    public function __toString() {
-        return "ClassDclStatement(" . $this->id . ")";
-    }
-}
-
-class InstanceExpression extends Expression {
-    public $id;
-    public $args;
-    public function __construct($id, $args, $location) {
-        parent::__construct($location);
-        $this->id = $id;
-        $this->args= $args;
-    }
-    public function accept(Visitor $visitor) {
-        return $visitor->visitInstanceExpression($this);
-    }
-    public function __toString() {
-        return "InstanceExpression(" . $this->id . ")";
+    public function __toString() {        
+        return "ArrayExpression(" . count($this->dimensions) . ")";
     }
 }

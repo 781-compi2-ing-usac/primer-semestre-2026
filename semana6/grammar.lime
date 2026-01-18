@@ -53,9 +53,6 @@ stmt = print '(' exp ')' ';' {
 | func id '(' params ')' block {
     $$ = new FunctionDclStatement($2['value'], $4, $6, $1['location']);
 }
-| class id block {
-    $$ = new ClassDclStatement($2['value'], $3, $1['location']);
-}
 | continue ';' {
     $$ = new FlowStatement(1, null, $1['location']);
 }
@@ -119,6 +116,12 @@ exp = postfix {
 | '(' exp ')' {
     $$ = new AgroupedExpression($2, $2->location);
 }
+| array_exp {
+    $$ = $1;
+}
+| id dimensions {
+    $$ = new RefVarStatement($1['value'], $2, $1['location']);
+}
 .
 
 postfix = primitive {
@@ -133,7 +136,7 @@ primitive = num {
     $$ = new NumberExpression($1['value'], $1['location']);
 }
 | id {
-    $$ = new RefVarStatement($1['value'], $1['location']);
+    $$ = new RefVarStatement($1['value'], null, $1['location']);
 }
 | string {
     $$ = new StringExpression($1['value'], $1['location']);
@@ -155,6 +158,23 @@ params = /* no params */ {
     $$ = array();
 }
 | param_list {
+    $$ = $1;
+}
+.
+
+array_exp = '{' args '}' {
+    $$ = new ArrayExpression($2, null, $1['location']);
+}
+| new var dimensions {
+    $$ = new ArrayExpression(null, $3, $1['location']);
+}
+.
+
+dimensions = '[' exp ']' {
+    $$ = array($2);
+}
+| dimensions '[' exp ']' {
+    $1[] = $3;
     $$ = $1;
 }
 .

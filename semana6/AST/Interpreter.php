@@ -11,13 +11,13 @@ class Interpreter implements Visitor {
         }
     }
 
-    public function visitExpression(Expression $expr) {
+    public function visitNode(Node $node) {
         throw new Exception("Cannot interpret generic expression");
     }
 
-    public function visitUnaryExpression(UnaryExpression $expr) {
-        $operand = $expr->operand->accept($this);
-        switch ($expr->operator) {
+    public function visitUnaryExpression(UnaryExpression $node) {
+        $operand = $node->operand->accept($this);
+        switch ($node->operator) {
             case '+':
                 return +$operand;
             case '-':
@@ -25,14 +25,14 @@ class Interpreter implements Visitor {
             case '!':
                 return (int) !$operand;
             default:
-                throw new Exception("Unknown unary operator: " . $expr->operator);
+                throw new Exception("Unknown unary operator: " . $node->operator);
         }
     }
 
-    public function visitBinaryExpression(BinaryExpression $expr) {
-        $left = $expr->left->accept($this);
-        $right = $expr->right->accept($this);
-        switch ($expr->operator) {
+    public function visitBinaryExpression(BinaryExpression $node) {
+        $left = $node->left->accept($this);
+        $right = $node->right->accept($this);
+        switch ($node->operator) {
             case '+':
                 return $left + $right;
             case '-':
@@ -46,56 +46,56 @@ class Interpreter implements Visitor {
             case '==':
                 return (int) $left == $right;
             default:
-                throw new Exception("Unknown binary operator: " . $expr->operator);
+                throw new Exception("Unknown binary operator: " . $node->operator);
         }
     }
 
-    public function visitAgroupedExpression(AgroupedExpression $expr) {
-        return $expr->expression->accept($this);
+    public function visitAgroupedExpression(AgroupedExpression $node) {
+        return $node->expression->accept($this);
     }
 
-    public function visitNumberExpression(NumberExpression $expr) {
-        return (int) $expr->value;
+    public function visitNumberExpression(NumberExpression $node) {
+        return (int) $node->value;
     }
 
-    public function visitBooleanExpression(BooleanExpression $expr) {
-        $value = $expr->value;        
+    public function visitBooleanExpression(BooleanExpression $node) {
+        $value = $node->value;        
         return (int) filter_var($value, FILTER_VALIDATE_BOOLEAN); 
     }
 
-    public function visitStringExpression(StringExpression $expr) {
+    public function visitStringExpression(StringExpression $node) {
         // Aquí se puede agregar lógica para manejar \n y ese tipo de caracteres.
-        $result = str_replace("\"", "", $expr->value);
+        $result = str_replace("\"", "", $node->value);
         $result = str_replace("\\n", "\n", $result);
         return (string) $result;
     }
 
-    public function visitPrintStatement(PrintStatement $expr) {
-        $value = $expr->expression->accept($this);             
+    public function visitPrintStatement(PrintStatement $node) {
+        $value = $node->expression->accept($this);              
         $this->output .= $value . "\n";
     }
 
-    public function visitVarDclStatement(VarDclStatement $expr) {
-        $value = $expr->expression->accept($this);
-        $key = $expr->id;
+    public function visitVarDclStatement(VarDclStatement $node) {
+        $value = $node->expression->accept($this);
+        $key = $node->id;        
         $this->env->set($key, $value);        
     }
 
-    public function visitVarAssignStatement(VarAssignStatement $expr){
-        $value = $expr->expr->accept($this);
-        $key = $expr->id;
+    public function visitVarAssignStatement(VarAssignStatement $node){
+        $value = $node->expr->accept($this);
+        $key = $node->id;
         $this->env->assign($key, $value);
     }
 
-    public function visitRefVarStatement(RefVarStatement $expr){        
-        $key = $expr->id;
+    public function visitRefVarStatement(RefVarStatement $node){        
+        $key = $node->id;        
         return $this->env->get($key);
     }
 
-    public function visitBlockStatement(BlockStatement $expr){
+    public function visitBlockStatement(BlockStatement $node){
         $prevEnv = $this->env;
         $this->env = new Environment($prevEnv);
-        foreach ($expr->stmts as $stmt) {
+        foreach ($node->stmts as $stmt) {
             $retVal = $stmt->accept($this);
             if ($retVal instanceof FlowType) {                
                 $this->env = $prevEnv;                
@@ -105,44 +105,46 @@ class Interpreter implements Visitor {
         $this->env = $prevEnv;
     }
 
-    public function visitIfStatement(IfStatement $expr){
-        $condition = filter_var($expr->cond->accept($this), FILTER_VALIDATE_BOOLEAN);
+    public function visitIfStatement(IfStatement $node){
+        $condition = filter_var($node->cond->accept($this), FILTER_VALIDATE_BOOLEAN);
         if ($condition) {
-            $retVal = $expr->machedBlock->accept($this);
+            $retVal = $node->machedBlock->accept($this);
             if ($retVal instanceof FlowType) {
                 return $retVal;
             }
         } 
-        if (!$condition and $expr->elseBlock !== null) {
-            $retVal = $expr->elseBlock->accept($this);
+        if (!$condition and $node->elseBlock !== null) {
+            $retVal = $node->elseBlock->accept($this);
             if ($retVal instanceof FlowType) {
                 return $retVal;
             }
         }
     }
 
-    public function visitWhileStatement(WhileStatement $expr){
+    public function visitWhileStatement(WhileStatement $node){
         do {
-            $condition = filter_var($expr->cond->accept($this), FILTER_VALIDATE_BOOLEAN);
+            $condition = filter_var($node->cond->accept($this), FILTER_VALIDATE_BOOLEAN);
             if (!$condition) {                
                 break;
             }
-            $retVal = $expr->block->accept($this);            
-            if ($retVal instanceof BreakType) {    
-                echo "Haciendo break";
+            $retVal = $node->block->accept($this);            
+            if ($retVal instanceof BreakType) {                    
                 break;
+            } elseif ($retVal instanceof ReturnType) {
+                return $retVal;
             }
+
         } while ($condition);
     }
 
-    public function visitFlowStatement(FlowStatement $expr){        
-        if ($expr->type === 1) {
+    public function visitFlowStatement(FlowStatement $node){        
+        if ($node->type === 1) {
             return new ContinueType();
-        } elseif ($expr->type === 2) {            
+        } elseif ($node->type === 2) {            
             return new BreakType();
-        } elseif ($expr->type === 3) {
-            if ($expr->retval !== null) {
-                $value = $expr->retval->accept($this);
+        } elseif ($node->type === 3) {
+            if ($node->retval !== null) {
+                $value = $node->retval->accept($this);
                 return new ReturnType($value);
             }
             return new ReturnType();
@@ -150,11 +152,11 @@ class Interpreter implements Visitor {
         throw new Exception("Unkown flow statement");
     }
 
-    public function visitCallStatement(CallStatement $expr){
-        $function = $expr->callee->accept($this);
+    public function visitCallStatement(CallStatement $node){
+        $function = $node->callee->accept($this);
         $args = array();
-        if ($expr->args !== null) {            
-            foreach ($expr->args as $arg) {
+        if ($node->args !== null) {            
+            foreach ($node->args as $arg) {
                 $args[] = $arg->accept($this);
             }
         }
@@ -168,37 +170,45 @@ class Interpreter implements Visitor {
         return $function->invoke($this, $args);
     }
 
-    public function visitFunctionDclStatement(FunctionDclStatement $expr){
-        $func = new Foreign($expr, $this->env);
-        $this->env->set($expr->id, $func);
-    }
+    public function visitFunctionDclStatement(FunctionDclStatement $node){
+        $func = new Foreign($node, $this->env);
+        $this->env->set($node->id, $func);
+    }    
 
-    public function visitClassDclStatement(ClassDclStatement $expr){
-        $functions = array();
-        $properties = array();
-        
-        foreach ($expr->block->stmts as $stmt) {
-            if ($stmt instanceof FunctionDclStatement) {
-                $functions[] = new FunctionDclStatement($stmt, $this->env);
-            } elseif ($stmt instanceof VarDclStatement) {
-                $properties[$stmt->id] = $stmt->expression;
+    public function visitArrayExpression(ArrayExpression $node){                    
+        $level = 0;
+        $defaut = array();
+        # Construcción de Array new var[num][num]...[...]
+        if ($node->values === null) {
+            foreach ($node->dimensions as $dimension) {
+                $length = $dimension->accept($this);                
+                if (!is_int($length)) {
+                    throw new Exception("Coloque un valor válido en array");
+                }
+                if ($level == 0) {
+                    $defaut = array_fill(0, $length,null);                        
+                } else {
+                    $newDimension = array_fill(0, $length, $defaut);
+                    $defaut = $newDimension;
+                }
+                $level++;
+            }        
+            $node->values = $defaut;
+            return $node;        
+        }
+        # Construcción de Array {{1,2,3,4},{5,6,7,8},...{...}}                
+        $length = count($node->values);
+        $node->dimensions[] = $length;
+        $accepted_vals = array();
+        foreach ($node->values as $dimension) {
+            $result = $dimension->accept($this);
+            $accepted_vals[] = $result;
+            if (!($result instanceof ArrayExpression)) {                                
+                return $node;
+            } else {
+                $node->dimensions = array_merge($node->dimensions, $result->dimensions);
+                return $node;
             }
-        }
-
-        $newClass = new ClassType($expr->id, $properties, $functions);
-        $this->env->set($expr->id, $newClass);
-    }
-
-    public function visitInstanceExpression(InstanceExpression $expr){
-        $class = $this->env->get($expr->id);
-        $args = array();
-        foreach ($expr->args as $arg) {
-                $args[] = $arg->accept($this);
-        }
-
-        if (!($class instanceof ClassType)) {
-                throw new Exception("No es posible instanciar algo que no es una clase");
-        }
-        return $class->invoke($this, $args);
+        }                    
     }
 }
