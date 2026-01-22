@@ -1,9 +1,10 @@
-# Semana 3
+# Semana 3 — Variables y entorno de ejecución
 
-En esta semana mejoraremos un poco la interfaz para que parezca un IDE en el que vamos a estar corriendo nuestro código, además que vamos a agregar la lógica para poder declarar variables y referenciarlas.
+## Cambios respecto a la semana anterior
+- Soporte para variables y asignaciones.
+- Implementación de un entorno de ejecución (Environment).
+- Mejora de la interfaz gráfica.
+- Extensión de la gramática.
 
-## Archivos que se modificaron:
-* lexer_gen.py: se modifico para manejar las lineas y columnas de los tokens
-* index.php: se modifico para que tenga una mejor interfaz.
-* Se agregó la gramatica para soportar declaración de variables y referencia de variables
-* Se creó la clase Environment para manejar entornos.
+## Descripción
+Se introduce el manejo de estado dentro del lenguaje, permitiendo variables y sentando las bases para control de flujo y modularidad.
