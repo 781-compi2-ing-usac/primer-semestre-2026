@@ -1,0 +1,38 @@
+func bubbleSort(arr, n) {
+    var i;
+    var j;
+    var temp;
+
+    i = 0;
+    while (i < n) {
+        j = 0;
+        while (j < n - i - 1) {
+            if (arr[j] > arr[j + 1]) {
+                temp = arr[j];
+                arr[j] = arr[j + 1];
+                arr[j + 1] = temp;
+            }
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    return arr;
+}
+var diego = "123";
+var datos = {5, 3, 8, 1, 2};
+
+print("Antes:");
+print(datos[0]);
+print(datos[1]);
+print(datos[2]);
+print(datos[3]);
+print(datos[4]);
+
+datos = bubbleSort(datos, 5);
+
+print("Después:");
+print(datos[0]);
+print(datos[1]);
+print(datos[2]);
+print(datos[3]);
+print(datos[4]);

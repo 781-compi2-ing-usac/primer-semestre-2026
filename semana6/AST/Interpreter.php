@@ -79,7 +79,6 @@ class Interpreter implements Visitor {
     }
 
     public function visitVarDclStatement(VarDclStatement $node) {        
-        
         if ($node->expression !== null) {
             $value = $node->expression->accept($this);
         } else {
