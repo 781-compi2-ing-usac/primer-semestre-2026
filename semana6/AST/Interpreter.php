@@ -78,9 +78,14 @@ class Interpreter implements Visitor {
         $this->output .= $value . "\n";
     }
 
-    public function visitVarDclStatement(VarDclStatement $node) {
-        $value = $node->expression->accept($this);
-        $key = $node->id;        
+    public function visitVarDclStatement(VarDclStatement $node) {        
+        
+        if ($node->expression !== null) {
+            $value = $node->expression->accept($this);
+        } else {
+            $value = "null";
+        }
+        $key = $node->id;                
         $this->env->set($key, $value);        
     }
 
