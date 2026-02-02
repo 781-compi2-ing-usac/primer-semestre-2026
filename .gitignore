@@ -2,6 +2,10 @@
 /vendor/
 **/vendor/
 
+# ANTLR vscode extension
+/.antlr/
+**/.antlr/
+
 # ANTLR
 ANTLRv4/
 **/ANTLRv4/

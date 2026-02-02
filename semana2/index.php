@@ -12,6 +12,10 @@ require_once 'bootstrap.php';
 
 use Antlr\Antlr4\Runtime\InputStream;
 use Antlr\Antlr4\Runtime\CommonTokenStream;
+use Antlr\Antlr4\Runtime\Error\BailErrorStrategy;
+use Antlr\Antlr4\Runtime\Error\Exceptions\ParseCancellationException;
+use Antlr\Antlr4\Runtime\Error\Exceptions\InputMismatchException;
+
 
 $input = "";
 $output = "";
@@ -28,6 +32,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $lexer  = new GrammarLexer($inputStream);
             $tokens = new CommonTokenStream($lexer);
             $parser = new GrammarParser($tokens);            
+            
+            $parser->setErrorHandler(new BailErrorStrategy());
 
             // Regla inicial
             $tree = $parser->p();
@@ -37,8 +43,35 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $result = $interpreter->visit($tree);
 
             $output = "Result: " . $result;
-        } catch (Exception $e) {
-            $output = "Error: " . $e->getMessage();
+        } catch (ParseCancellationException $e) {
+            $cause = $e->getPrevious();
+
+            if ($cause instanceof InputMismatchException) {
+                $offending = $cause->getOffendingToken();
+                $expected  = $cause->getExpectedTokens();
+
+                $found = $offending ? $offending->getText() : 'EOF';
+
+                // Convertir expected tokens a texto
+                $parser = $cause->getRecognizer();
+                $vocab  = $parser->getVocabulary();
+
+                $expectedNames = [];
+                foreach ($expected->toArray() as $t) {
+                    $name = $vocab->getDisplayName($t);
+                    $expectedNames[] = $name;
+                }
+
+                $output = sprintf(
+                    "Error sintáctico en línea %d, columna %d: se esperaba %s y se encontró %s",
+                    $offending->getLine(),
+                    $offending->getCharPositionInLine(),
+                    implode(" o ", $expectedNames),
+                    $found
+                );
+            } else {
+                $output = "Error sintáctico.";
+            }
         }
     } else {
         $output = "Ingrese una expresión.";
