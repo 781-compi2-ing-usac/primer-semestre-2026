@@ -1,5 +1,11 @@
 # Semana 2
 
+## Comandos para generar parser:
+
+``` bash
+antlr4 -Dlanguage=PHP Grammar.g4 -visitor -o ANTLRv4/
+```
+
 En esta semana aprenderemos sobre las expresiones binarias utilizando un arbol de sintaxis abstracta (AST) y cómo implementar un parser con LIME con el patrón de diseño visitor para manejar estas expresiones.
 
 # Semana 2 — Expresiones binarias y AST

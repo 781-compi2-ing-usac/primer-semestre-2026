@@ -1,7 +1,11 @@
 grammar Grammar;
 
 p
-    : e EOF
+    : stmt* EOF                        # Program
+    ;
+
+stmt
+    : 'print' '(' e ')' ';'            # PrintStatement
     ;
 
 e    
