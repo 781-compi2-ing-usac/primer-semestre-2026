@@ -4,8 +4,12 @@ use Context\BinaryExpressionContext;
 use Context\UnaryExpressionContext;
 use Context\PrimaryExpressionContext;
 use Context\GroupedExpressionContext;
+use Context\PrintStatementContext;
+use Context\ProgramContext;
 
 class Interpreter extends GrammarBaseVisitor {
+    public $console;
+
     public function visitUnaryExpression(UnaryExpressionContext $ctx) {        
         return - $this->visit($ctx->e());
     }
@@ -13,8 +17,7 @@ class Interpreter extends GrammarBaseVisitor {
     public function visitBinaryExpression(BinaryExpressionContext $ctx) {
         $left = $this->visit($ctx->e(0));
         $right = $this->visit($ctx->e(1));
-        $op = $ctx->op->getText();
-        echo "Evaluating: " . $left . " " . $op . " " . $right . PHP_EOL;
+        $op = $ctx->op->getText();                
         switch($op) {
             case '+':
                 return $left + $right;
@@ -35,5 +38,18 @@ class Interpreter extends GrammarBaseVisitor {
 
     public function visitGroupedExpression(GroupedExpressionContext $ctx) {
         return $this->visit($ctx->e());
+    }
+
+    public function visitPrintStatement(PrintStatementContext $ctx) {
+        $value = $this->visit($ctx->e());        
+        $this->console .= $value . "\n";
+        return $value;
+    }
+
+    public function visitProgram(ProgramContext $ctx) {          
+        foreach ($ctx->stmt() as $stmt) {
+            $this->visit($stmt);
+        }
+        return $this->console;
     }
 }
