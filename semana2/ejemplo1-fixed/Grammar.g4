@@ -1,11 +1,11 @@
 grammar Grammar;
 
 p
-    : stmt* EOF                        # Program
+    : (stmt NEWLINE*)* EOF                # Program
     ;
 
 stmt
-    : 'print' '(' e ')' ';'            # PrintStatement
+    : 'print' '(' e ')' NEWLINE           # PrintStatement
     ;
 
 e    
@@ -33,4 +33,5 @@ primary
     ;
 
 INT : [0-9]+ ;
-WS  : [ \t\r\n]+ -> skip ;
+NEWLINE : '\n' ;
+WS  : [ \t\r]+ -> skip ;
