@@ -43,7 +43,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $interpreter = new Interpreter();
             $result = $interpreter->visit($tree);
 
-            $output = "Result: " . $result;
+            $output = $result;
         } catch (ParseCancellationException $e) {
             $cause = $e->getPrevious();
 
