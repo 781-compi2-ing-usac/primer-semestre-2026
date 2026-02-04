@@ -37,6 +37,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             // Regla inicial
             $tree = $parser->p();
+            
 
             // Interpretar
             $interpreter = new Interpreter();

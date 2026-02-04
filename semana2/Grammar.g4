@@ -9,11 +9,27 @@ stmt
     ;
 
 e    
-    : e op=('*' | '/') e               # BinaryExpression
-    | e op=('+' | '-') e               # BinaryExpression    
-    | INT                              # PrimaryExpression
-    | '-' e                            # UnaryExpression
-    | '(' e ')'                        # GroupedExpression
+    : add                              
+    ;
+
+add 
+    : add op=('+' | '-') prod          # AddExpression
+    | prod                             # AddExpression
+    ;
+
+prod
+    : prod op=('*' | '/') unary        # ProductExpression
+    | unary                            # ProductExpression
+    ;
+
+unary
+    : primary                          # PrimaryExpression
+    | '-' unary                        # UnaryExpression
+    ;
+
+primary    
+    : '(' e ')'                        # GroupedExpression   
+    | INT                              # IntExpression
     ;
 
 INT : [0-9]+ ;
