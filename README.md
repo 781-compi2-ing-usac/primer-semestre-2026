@@ -1,6 +1,13 @@
 # OLC2_1S2026
 
-Este es el repositorio de Organización de Lenguajes y Compiladores 2 en el periodo de Primer Semestre de 2026.
+Bienvenido al repositorio de todas las secciones. Aquí se encuentran los ejercicios, ejemplos y demás recursos utilizados en cada sesión de laboratorio, no dudes utilizar los foros para cualquier pregunta acerca de los recursos de este repositorio. El equipo académico se detalla así:
+
+|Nombre                   |Sección|
+|-------------------------|-|
+|Diego Felipe Cali Morales|A|
+|Rubén Alejandro Ralda Mejia|B|
+|Omar Alejandro Vides Esteban|N|
+
 
 ## Contenido
 El repositorio está dividido en varias carpetas cada una correspondiente a una semana de contenido:
@@ -22,8 +29,27 @@ El repositorio está dividido en varias carpetas cada una correspondiente a una 
 - `semana10`: 
 - `semana11`: 
 
+## Contribuciones
+Si deseas contribuir al repositorio puedes hacer uso de GitHub Flow y pronto se estará aprobando tu pull request. De igual manera puedes agregar la pregunta al foro respectivo de tu sección, nos ayudaría mucho.
+
+## Instalación de herramientas
+
+Ubuntu:
+pip install antlr4-tools
+sudo apt install php composer
+
+Fedora:
+
+## Ejecución rápida
+
+~~~bash
+php -S 127.0.0.1:8000
+~~~
+
 ## Recursos:
 
 * Repositorio de ANTLRv4: https://github.com/antlr/antlr4
 * Guia de como crear un intérprete: https://craftinginterpreters.com/
 * Documentación de PHP: https://www.php.net/docs.php
+* ANTLR4 Runtime for PHP: https://github.com/antlr/antlr4/blob/master/doc/php-target.md
+* Getting Started with ANTLR v4: https://github.com/antlr/antlr4/blob/master/doc/getting-started.md

@@ -52,6 +52,7 @@ ANTLRv4/
 /antlr/
 /ANTLR/
 /ANTLRv4/
+.antlr/
 
 #################################
 # IDEs / Editors
