@@ -1,5 +1,11 @@
 # Semana 3 — Variables y entorno de ejecución
 
+## Comandos para generar parser:
+
+``` bash
+antlr4 -Dlanguage=PHP Grammar.g4 -visitor -o ANTLRv4/
+```
+
 ## Cambios respecto a la semana anterior
 - Soporte para variables y asignaciones.
 - Implementación de un entorno de ejecución (Environment).

@@ -26,6 +26,6 @@ class Environment {
             return $this->father->get($key);
         }
         
-        throw new Exception("Variable:" . $key ." no definida.");
+        throw new Exception("Variable: '" . $key ."' no definida.");
     }
 }
