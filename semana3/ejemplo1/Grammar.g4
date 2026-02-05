@@ -1,11 +1,13 @@
 grammar Grammar;
 
 p
-    : (stmt NEWLINE*)* EOF                # Program
+    : stmt* EOF                        # Program
     ;
 
 stmt
-    : 'print' '(' e ')' NEWLINE           # PrintStatement
+    : 'print' '(' e ')'                # PrintStatement
+    | 'var' ID '=' e                   # VarDeclaration
+    | '{' stmt* '}'                    # BlockStatement
     ;
 
 e    
@@ -30,8 +32,9 @@ unary
 primary    
     : '(' e ')'                        # GroupedExpression   
     | INT                              # IntExpression
+    | ID                               # ReferenceExpression
     ;
 
 INT : [0-9]+ ;
-NEWLINE : '\n' ;
-WS  : [ \t\r]+ -> skip ;
+ID  : [a-zA-Z_][a-zA-Z0-9_]* ;
+WS  : [ \t\r\n]+ -> skip ;

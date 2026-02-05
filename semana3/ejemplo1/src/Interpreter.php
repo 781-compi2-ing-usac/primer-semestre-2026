@@ -2,17 +2,26 @@
 
 use Context\ProgramContext;
 use Context\PrintStatementContext;
+use Context\VarDeclarationContext;
+use Context\BlockStatementContext;
 use Context\AddExpressionContext;
 use Context\ProductExpressionContext;
 use Context\PrimaryExpressionContext;
 use Context\UnaryExpressionContext;
 use Context\GroupedExpressionContext;
 use Context\IntExpressionContext;
+use Context\ReferenceExpressionContext;
 
 
 
 class Interpreter extends GrammarBaseVisitor {
-    public $console = "";
+    private $console;
+    private $env;
+
+    public function __construct() {
+        $this->console = "";
+        $this->env = new Environment();
+    }
 
     public function visitProgram(ProgramContext $ctx) {                  
         foreach ($ctx->stmt() as $stmt) {            
@@ -25,6 +34,22 @@ class Interpreter extends GrammarBaseVisitor {
         $value = $this->visit($ctx->e());           
         $this->console .= $value . "\n";
         return $value;
+    }
+
+    public function visitVarDeclaration(VarDeclarationContext $ctx) {
+        $varName = $ctx->ID()->getText();
+        $value = $this->visit($ctx->e());
+        $this->env->set($varName, $value);
+        return $value;
+    }
+
+    public function visitBlockStatement(BlockStatementContext $ctx) {
+        $prevEnv = $this->env;
+        $this->env = new Environment($prevEnv);
+        foreach ($ctx->stmt() as $stmt) {            
+            $this->visit($stmt);
+        }
+        $this->env = $prevEnv;        
     }
 
     public function visitAddExpression(AddExpressionContext $ctx) {
@@ -79,5 +104,10 @@ class Interpreter extends GrammarBaseVisitor {
 
     public function visitIntExpression(IntExpressionContext $ctx) {
         return intval($ctx->INT()->getText());
-    }    
+    }  
+    
+    public function visitReferenceExpression(ReferenceExpressionContext $ctx) {
+        $varName = $ctx->ID()->getText();
+        return $this->env->get($varName);
+    }
 }

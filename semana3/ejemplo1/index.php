@@ -68,8 +68,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $found
                 );
             } else {
-                $output = "Error sintáctico.";
+                $output = $e;
             }
+        } catch (Exception $e) {
+            $output = $e->getMessage();
         }
     } else {
         $output = "Por favor ingrese código para parsear.";
