@@ -3,6 +3,7 @@
 use Context\ProgramContext;
 use Context\PrintStatementContext;
 use Context\VarDeclarationContext;
+use Context\AssignmentStatementContext;
 use Context\BlockStatementContext;
 use Context\AddExpressionContext;
 use Context\ProductExpressionContext;
@@ -43,10 +44,17 @@ class Interpreter extends GrammarBaseVisitor {
         return $value;
     }
 
+    public function visitAssignmentStatement(AssignmentStatementContext $ctx) {
+        $varName = $ctx->ID()->getText();
+        $value = $this->visit($ctx->e());
+        $this->env->assign($varName, $value);
+        return $value;
+    }
+
     public function visitBlockStatement(BlockStatementContext $ctx) {
         $prevEnv = $this->env;
         $this->env = new Environment($prevEnv);
-        foreach ($ctx->stmt() as $stmt) {            
+        foreach ($ctx->block()->stmt() as $stmt) {            
             $this->visit($stmt);
         }
         $this->env = $prevEnv;        

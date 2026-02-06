@@ -28,4 +28,15 @@ class Environment {
         
         throw new Exception("Variable: '" . $key ."' no definida.");
     }
+
+    public function assign($key, $value) {    
+        if ($this->values[$key] !== null) {
+            $this->values[$key] = $value;
+            return;
+        }
+        if ($this->father !== null) {
+            return $this->father->assign($key, $value);
+        }
+        throw new Exception("Variable: ". $key ." no definida.");    
+    }
 }
