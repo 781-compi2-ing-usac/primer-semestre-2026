@@ -7,6 +7,7 @@ p
 stmt
     : 'print' '(' e ')'                # PrintStatement
     | 'var' ID '=' e                   # VarDeclaration
+    | ID '=' e                         # AssignmentStatement
     | '{' stmt* '}'                    # BlockStatement
     ;
 
