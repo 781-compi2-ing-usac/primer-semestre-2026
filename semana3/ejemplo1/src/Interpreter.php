@@ -13,8 +13,6 @@ use Context\GroupedExpressionContext;
 use Context\IntExpressionContext;
 use Context\ReferenceExpressionContext;
 
-
-
 class Interpreter extends GrammarBaseVisitor {
     private $console;
     private $env;
@@ -54,7 +52,7 @@ class Interpreter extends GrammarBaseVisitor {
     public function visitBlockStatement(BlockStatementContext $ctx) {
         $prevEnv = $this->env;
         $this->env = new Environment($prevEnv);
-        foreach ($ctx->block()->stmt() as $stmt) {            
+        foreach ($ctx->stmt() as $stmt) {            
             $this->visit($stmt);
         }
         $this->env = $prevEnv;        

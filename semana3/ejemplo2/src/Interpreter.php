@@ -2,18 +2,17 @@
 
 namespace App;
 
-use Context\{ ProgramContext, VarDeclarationContext };
+use Context\{ ProgramContext };
 use Context\{ AssignmentStatementContext, BlockStatementContext }; 
-use Context\{ GroupedExpressionContext };
-use Context\{ ReferenceExpressionContext };
+use Context\{ GroupedExpressionContext, ReferenceExpressionContext };
 
-use App\Ast\{PrintF};
+use App\Ast\{PrintF, Declaracion};
 use App\Ast\Expresiones\{Aritmeticas, Primitivos};
 use App\Env\Environment;
 
 class Interpreter extends \GrammarBaseVisitor 
 {
-    use Aritmeticas, Primitivos, PrintF;
+    use Aritmeticas, Primitivos, PrintF, Declaracion;
     private $console;
     private $env;
 
@@ -27,13 +26,6 @@ class Interpreter extends \GrammarBaseVisitor
             $this->visit($stmt);
         }
         return $this->console;
-    }
-
-    public function visitVarDeclaration(VarDeclarationContext $ctx) {
-        $varName = $ctx->ID()->getText();
-        $value = $this->visit($ctx->expresion());
-        $this->env->set($varName, $value);
-        return $value;
     }
 
     public function visitAssignmentStatement(AssignmentStatementContext $ctx) {
