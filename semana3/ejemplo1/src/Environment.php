@@ -37,6 +37,6 @@ class Environment {
         if ($this->father !== null) {
             return $this->father->assign($key, $value);
         }
-        throw new Exception("Variable: ". $key ." no definida.");    
+        throw new Exception("Variable: '". $key ."' no definida.");    
     }
 }

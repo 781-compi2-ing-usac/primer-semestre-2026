@@ -40,21 +40,19 @@ class Interpreter extends GrammarBaseVisitor {
     public function visitVarDeclaration(VarDeclarationContext $ctx) {
         $varName = $ctx->ID()->getText();
         $value = $this->visit($ctx->e());
-        $this->env->set($varName, $value);
-        return $value;
+        $this->env->set($varName, $value);        
     }
 
     public function visitAssignmentStatement(AssignmentStatementContext $ctx) {
         $varName = $ctx->ID()->getText();
         $value = $this->visit($ctx->e());
-        $this->env->assign($varName, $value);
-        return $value;
+        $this->env->assign($varName, $value);        
     }
 
     public function visitBlockStatement(BlockStatementContext $ctx) {
         $prevEnv = $this->env;
         $this->env = new Environment($prevEnv);
-        foreach ($ctx->block()->stmt() as $stmt) {            
+        foreach ($ctx->stmt() as $stmt) {            
             $this->visit($stmt);
         }
         $this->env = $prevEnv;        
