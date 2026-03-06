@@ -14,16 +14,16 @@ El repositorio está dividido en varias carpetas cada una correspondiente a una 
 
 ## Intérprete
 
-- `semana1`: Introducción a los lenguajes de programación y compiladores. Vamos a revisar las herrameintas con las que vamos a trabajar durante el curso. Como configurar el entorno de desarrollo y una demostración de ANTLRv4 como parser.
-- `semana2`: Interpretación de instrucciones básicas. En esta semana se implementa un intérprete para un subconjunto de instrucciones en ANTLRv4, una calculadora simple, ademas de agregar print en nuestro intérprete.
-- `semana3`: Manejo de entornos dentro del Interprete. Se añade soporte para variables y asignaciones en el intérprete, además de bloques de código y profundizamos más en el patrón Visitor.
-- `semana4`: Estructuras de control. Se implementan estructuras de control como condicionales y bucles en el intérprete. Implementamos también sentencias de transferencia de control como break.
-- `semana5`: Funciones y cerraduras en un intérprete. Se añade soporte para funciones, parámetros y retornos en el intérprete, además de utilizar hoisting.
-- `semana6`: Manejo de errores y depuración. Se implementan mecanismos para manejar errores en tiempo de ejecución y se añaden funcionalidades de depuración al intérprete.
+- `semana1`: Introducción a los lenguajes de programación y compiladores. Revisamos las herramientas a utilizar durante el curso, configuramos el entorno de desarrollo y demostramos ANTLRv4 como parser. Se implementa una calculadora aritmética simple con suma, multiplicación, paréntesis y números enteros.
+- `semana2`: Interpretación de instrucciones básicas. Se implementa un intérprete para la ejecución de statements básicos, agregamos el operador `print`, y más operadores aritméticos (resta, división) así como operadores unarios. Se reorganiza el proyecto con estructura de carpetas.
+- `semana3`: Manejo de entornos dentro del intérprete. Se añade soporte para variables, asignaciones, bloques de código y scopes. Se implementa la clase `Environment` para manejar la tabla de símbolos y alcances anidados.
+- `semana4`: Estructuras de control. Se implementan valores booleanos, operadores relacionales (==, >, <), condicionales (`if`/`else`), bucles (`while`), y sentencias de transferencia de control (`break`, `continue`). Se utiliza un sistema de `FlowTypes` para manejar el flujo de control.
+- `semana5`: Funciones y closures. Se añade soporte para declaración de funciones, parámetros, argumentos y retorno de valores (`return`). Se implementan las clases `Invocable`, `Foreigns` para funciones del usuario y `Natives` para funciones predefinidas.
+- `semana6`: Estructuras de datos compuestas. Se implementan arreglos, literales de arreglo, acceso indexado y asignación a posiciones en arreglos, incluyendo acceso anidado multidimensional.
 
 ## Compilador
 
-- `semana7`: 
+- `semana7`: Inicio de la implementación del compilador. Comenzamos con la generación de código assembler para expresiones y el operador `print`. Este es el punto de transición entre interpretación y compilación.
 - `semana8`: 
 - `semana9`: 
 - `semana10`: 

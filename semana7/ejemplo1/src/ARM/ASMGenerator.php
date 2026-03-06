@@ -77,12 +77,25 @@ class ASMGenerator {
         );
     }
 
+    public function ldrl($rd, $label) {
+        $this->instr[] = new Instruction(
+            "ldr",
+            $rd,
+            "=".$label
+        );
+    }
+
+
     public function li($rd, $imm) {
         $this->instr[] = new Instruction("mov", $rd, "#".$imm);
     }
 
     public function mov($rd, $rs) {
         $this->instr[] = new Instruction("mov", $rd, $rs);
+    }
+
+    public function bl($label) {
+        $this->instr[] = new Instruction("bl", $label);
     }
 
     public function push($rd=null) {
@@ -105,39 +118,32 @@ class ASMGenerator {
         $this->instr[] = new Instruction("svc", "#0");
     }
 
+    public function printNewLine() {
+        $this->comment("Preparando salto de línea");
+        $this->li($this->r["A0"], 1); // stdout
+        $this->ldrl($this->r["A1"], "newline");
+        $this->li($this->r["A2"], 1);
+        $this->li($this->r["SYS"], 64);  // write syscall
+        $this->syscall();
+    }
+
     public function printInt($rd = null) {
         if ($rd === null) $rd = $this->r["A0"];
 
-        // Si usamos otro registro temporal, salvamos A0
-        if ($rd !== $this->r["A0"]) {
-            $this->push($this->r["A0"]);
-            $this->add($this->r["A0"], $rd, $this->r["ZERO"]);
-        }
-
-        // Reservar 8 bytes en stack para usar como buffer
-        $this->sub($this->r["SP"], $this->r["SP"], 8);
-        // Convertir dígito a ASCII y guardarlo en stack
-        $this->add($this->r["T0"], $this->r["A0"], 0x30);
-        $this->str($this->r["T0"], $this->r["SP"], 0);
-
-        // Preparamos syscall write
-        $this->li($this->r["SYS"], 64);       // write
-        $this->mov($this->r["A0"], 1);        // stdout
-        $this->mov($this->r["A1"], $this->r["SP"]); // puntero al buffer en stack
-        $this->li($this->r["A2"], 1);         // longitud = 1 byte
-        $this->syscall();
-
-        // Liberar stack
-        $this->add($this->r["SP"], $this->r["SP"], 8);
-
-        // Restaurar A0 si usamos otro registro
-        if ($rd !== $this->r["A0"]) {
-            $this->pop($this->r["A0"]);
-        }
+        $this->bl("itoa");
+        $this->comment("Retorno: A0 con puntero al buffer, A1 con longitud");
+        $this->comment("Preparando argumentos para syscall write");
+        $this->mov($this->r["A2"], $this->r["A1"]);  
+        $this->mov($this->r["A1"], $this->r["A0"]);
+        $this->li($this->r["A0"], 1); // stdout        
+        $this->li($this->r["SYS"], 64);  // write syscall
+        $this->syscall();        
+        $this->printNewLine();
     }
 
     public function endProgram() {
-
+        $this->comment("Terminando el programa");
+        $this->li($this->r["A0"], 0); // exit code 0
         $this->li($this->r["SYS"], 93);  // exit syscall
         $this->syscall();
     }
@@ -146,16 +152,58 @@ class ASMGenerator {
         $this->instr[] = new Instruction("// ".$text);
     }
 
-    public function toString() {
+    public function itoa() {
+        $code = "itoa:\n";                    
+        $code .= "// x0 = integer\n";
+        $code .= "// returns:\n";
+        $code .= "// x0 = buffer ptr\n";
+        $code .= "// x1 = length\n";
+        $code .= "ldr x2, =buffer\n";
+        $code .= "add x2, x2, #31\n";
+        $code .= "mov w3, #0\n";
+        $code .= "strb w3, [x2]\n";
 
-        $out = ".text\n";
-        $out .= ".global _start\n";
+        $code .= "mov x4, #10\n";
+        $code .= "mov x5, x0\n";
+
+        $code .= "loop:\n";
+        $code .= "udiv x6, x5, x4\n";
+        $code .= "msub x7, x6, x4, x5\n";
+        $code .= "add x7, x7, #48\n";
+        $code .= "sub x2, x2, #1\n";
+        $code .= "strb w7, [x2]\n";
+
+        $code .= "mov x5, x6\n";
+        $code .= "cbnz x6, loop\n";
+
+        $code .= "ldr x3, =buffer\n";
+        $code .= "add x3, x3, #31\n";
+        $code .= "sub x1, x3, x2\n";
+
+        $code .= "mov x0, x2\n";
+        $code .= "ret\n";
+        return $code;
+    }
+
+    public function rodata(){
+        $code = ".section .rodata\n";
+        $code .= "newline: .asciz \"\\n\"\n";
+        return $code;
+    }
+
+    public function toString() {
+        $out = ".global _start\n";
+        $out .= ".section .bss\n";
+        // Buffer para imprimir enteros de hasta 10 dígitos + signo + null terminator
+        $out .= "buffer: .skip 32\n"; 
+        $out .= ".section .text\n";        
         $out .= "_start:\n";
 
         foreach ($this->instr as $inst) {
             $out .= "    ".$inst."\n";
-        }
-
+        }        
+        $out .= $this->itoa();
+        $out .= $this->rodata();
         return $out;
     }
 }

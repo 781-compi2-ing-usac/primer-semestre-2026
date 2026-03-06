@@ -50,73 +50,84 @@ class Compiler extends GrammarBaseVisitor {
 
     public function visitPrintStatement(PrintStatementContext $ctx) {        
         $this->visit($ctx->e());
-        $this->code->pop($this->r["A0"]);
+        $this->code->comment("Imprimiendo el resultado de la expresión");
+        $this->code->comment("Cargando el valor a imprimir en A0");
+        $this->code->pop($this->r["A0"]);        
         $this->code->printInt($this->r["A0"]);
     }
 
-    public function visitAddExpression(AddExpressionContext $ctx) {        
-        $operable = $ctx->add() ? $this->visit($ctx->add()) : false;
-        if (!$operable) {            
+    public function visitAddExpression(AddExpressionContext $ctx) {            
+        if ($ctx->add() !== null) {
+            $this->visit($ctx->add());
             $this->visit($ctx->prod());
-            return;
-        }   
-        $this->visit($ctx->prod());        
-        $this->code->pop($this->r["T0"]);
-        $this->code->pop($this->r["T1"]);
+            $op = $ctx->op->getText();
 
-        switch ($ctx->op->getText()) {
-            case '+':
-                $this->code->add($this->r["T0"], $this->r["T0"], $this->r["T1"]);
-                $this->code->push($this->r["T0"]);
-                break;
-            case '-':
-                $this->code->sub($this->r["T0"], $this->r["T0"], $this->r["T1"]);
-                $this->code->push($this->r["T0"]);
-                break;
-            default:
-                throw new Exception("Unknown operator: " . $ctx->op);
-                break;
+            $this->code->comment("Visitando expresión de suma/resta: " . $op);
+            $this->code->comment("Evaluando el primer operando");
+            $this->code->pop($this->r["T0"]);
+            $this->code->comment("Evaluando el segundo operando");
+            $this->code->pop($this->r["T1"]);
+
+            switch ($op) {
+                case '+':
+                    $this->code->comment("Sumando T0 con T1");
+                    $this->code->add($this->r["T0"], $this->r["T0"], $this->r["T1"]);
+                    $this->code->push($this->r["T0"]);
+                    break;
+                case '-':
+                    $this->code->comment("Restando T0 con T1");
+                    $this->code->sub($this->r["T0"], $this->r["T0"], $this->r["T1"]);
+                    $this->code->push($this->r["T0"]);
+                    break;
+                default:
+                    throw new Exception("Operador desconocido: " . $op);
+            }
+        } else {
+            $this->visit($ctx->prod());
         }
     }
 
     public function visitProductExpression(ProductExpressionContext $ctx) {                
-        $operable = $ctx->prod() ? $this->visit($ctx->prod()) : false;
-        if (!$operable) {
-            $this->visit($ctx->unary()); 
-            return;
-        }
-        $this->visit($ctx->unary());
-        
-        $this->code->pop($this->r["T0"]);
-        $this->code->pop($this->r["T1"]);
+        if ($ctx->prod() !== null) {
+            $this->visit($ctx->prod());
+            $this->visit($ctx->unary());
+            $op = $ctx->op->getText();
 
-        if ($ctx->op === null) {
-            $this->code->push($this->r["T0"]);
-            return;
-        }
-        switch ($ctx->op->getText()) {
-            case '*':
-                $this->code->mul($this->r["T0"], $this->r["T0"], $this->r["T1"]);
-                $this->code->push($this->r["T0"]);
-                break;
-            case '/':
-                $this->code->div($this->r["T0"], $this->r["T0"], $this->r["T1"]);
-                $this->code->push($this->r["T0"]);
-                break;
-            default:
-                throw new Exception("Unknown operator: " . $ctx->op);
-                break;
-        }        
+            $this->code->comment("Visitando expresión de producto: " . $op);
+            $this->code->comment("Evaluando el primer operando");
+            $this->code->pop($this->r["T0"]);
+            $this->code->comment("Evaluando el segundo operando");
+            $this->code->pop($this->r["T1"]);
+
+            switch ($op) {
+                case '*':
+                    $this->code->comment("Multiplicando T0 con T1");  
+                    $this->code->mul($this->r["T0"], $this->r["T0"], $this->r["T1"]);
+                    $this->code->push($this->r["T0"]);                  
+                    break;                 
+                case '/':
+                    $this->code->comment("Dividiendo T0 con T1");
+                    $this->code->div($this->r["T0"], $this->r["T0"], $this->r["T1"]);
+                    $this->code->push($this->r["T0"]);
+                    break;
+                default:
+                    throw new Exception("Operador desconocido: " . $op);
+            }
+        } else {
+            $this->visit($ctx->unary());
+        }   
     }
 
     public function visitPrimaryExpression(PrimaryExpressionContext $ctx) {
         return $this->visit($ctx->primary());
     }
 
-    public function visitUnaryExpression(UnaryExpressionContext $ctx) {        
-        $this->visit($ctx->unary());
+    public function visitUnaryExpression(UnaryExpressionContext $ctx) {       
+        $this->code->comment("Visitando expresión unaria"); 
+        $this->visit($ctx->unary());    
+        $this->code->comment("Cargando el valor en T0");    
         $this->code->pop($this->r["T0"]);
-
+        $this->code->comment("Negando el valor en T0");
         $this->code->sub($this->r["T0"], $this->r["ZERO"], $this->r["T0"]);
         $this->code->push($this->r["T0"]);
     }
@@ -126,8 +137,9 @@ class Compiler extends GrammarBaseVisitor {
     }
 
     public function visitIntExpression(IntExpressionContext $ctx) {
+        $this->code->comment("Cargando entero: " . $ctx->INT()->getText());
         $number = intval($ctx->INT()->getText());
         $this->code->li($this->r["T0"], $number);
-        $this->code->push();
+        $this->code->push($this->r["T0"]);
     }      
 }
