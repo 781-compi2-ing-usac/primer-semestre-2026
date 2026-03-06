@@ -7,8 +7,8 @@ use Context\IntContext;
 
 class Interpreter extends GrammarBaseVisitor {
     public function visitAdd(AddContext $ctx){
-        $left = $this->visit($ctx->e(0));
-        $right = $this->visit($ctx->t(1));
+        $left = $this->visit($ctx->e()); // $left = $ctx->e()->accept($this);
+        $right = $this->visit($ctx->t());
         return $left + $right;
     }
 

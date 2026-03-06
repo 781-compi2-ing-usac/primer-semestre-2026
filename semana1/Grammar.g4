@@ -3,8 +3,8 @@ grammar Grammar;
 l : e
   ;
 
-e : e '+' t     #Add
-  | t           #Et
+e : e '+' t     # Add
+  | t           # Et
   ;
 
 t : t '*' f     #Product

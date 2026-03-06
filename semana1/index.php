@@ -11,7 +11,7 @@ require_once __DIR__ . '/Interpreter.php';
 use Antlr\Antlr4\Runtime\InputStream;
 use Antlr\Antlr4\Runtime\CommonTokenStream;
 
-$input = InputStream::fromString('3 + 5 * (2 + 8)');
+$input = InputStream::fromString('3 + 5 * (2 + 8) + 15 + 30');
 
 $lexer = new GrammarLexer($input);
 $tokens = new CommonTokenStream($lexer);

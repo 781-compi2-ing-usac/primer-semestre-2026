@@ -2,6 +2,10 @@
 /vendor/
 **/vendor/
 
+# ANTLR vscode extension
+/.antlr/
+**/.antlr/
+
 # ANTLR
 ANTLRv4/
 **/ANTLRv4/
@@ -48,6 +52,7 @@ ANTLRv4/
 /antlr/
 /ANTLR/
 /ANTLRv4/
+.antlr/
 
 #################################
 # IDEs / Editors
