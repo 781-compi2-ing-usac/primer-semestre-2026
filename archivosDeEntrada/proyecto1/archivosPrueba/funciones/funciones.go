@@ -39,7 +39,7 @@ func main() {
     fmt.Println("Valor después de la función por referencia (debe ser 20):", numeroBase)
 
     fmt.Println("\n--- 3.3 FUNCIONES POR REFERENCIA (CON ARREGLOS) ---")
-    misNotas := []int32{60, 75, 82, 90}
+    misNotas := [4]int32{60, 75, 82, 90}
     
     fmt.Println("Notas ANTES de la bonificación:")
     fmt.Println("Nota 1:", misNotas[0], "| Nota 2:", misNotas[1], "| Nota 3:", misNotas[2], "| Nota 4:", misNotas[3])
