@@ -18,7 +18,7 @@ func main() {
     fmt.Println("La cadena '", cadena, "' tiene longitud:", longitudCadena)
     
     // len() en Arreglos
-    arreglo := []int32{10, 20, 30, 40, 50}
+    arreglo := [5]int32{10, 20, 30, 40, 50}
     longitudArreglo := len(arreglo)
     fmt.Println("El arreglo tiene longitud:", longitudArreglo)
 
