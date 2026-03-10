@@ -1,4 +1,4 @@
-func bonificarNotas(notas *[]int32, puntosExtra int32) {
+func bonificarNotas(notas *[4]int32, puntosExtra int32) {
     for i := 0; i < len(notas); i++ {
         notas[i] = notas[i] + puntosExtra
     }
