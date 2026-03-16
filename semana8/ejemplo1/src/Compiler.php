@@ -50,9 +50,7 @@ class Compiler extends GrammarBaseVisitor {
 
     public function newLabel() {
         return "L" . $this->labelCounter++;
-    }
-
-    // ==================== Program ====================
+    }    
 
     public function visitProgram(ProgramContext $ctx) {
         $this->code->comment("Configurando el frame pointer");
@@ -63,9 +61,7 @@ class Compiler extends GrammarBaseVisitor {
         }
         $this->code->endProgram();
         return $this->code;
-    }
-
-    // ==================== Statements ====================
+    }    
 
     public function visitPrintStatement(PrintStatementContext $ctx) {        
         $type = $this->visit($ctx->e());
@@ -78,20 +74,20 @@ class Compiler extends GrammarBaseVisitor {
     public function visitVarDeclaration(VarDeclarationContext $ctx) {
         $varName = $ctx->ID()->getText();
 
-        // 1. Evaluate initializer → result pushed onto expression stack, get inferred type
+        // 1. Evaluar inicialización para obtener el tipo de la variable
         $type = $this->visit($ctx->e());
 
-        // 2. Allocate slot
+        // 2. Asignar espacio en el stack para la nueva variable 
         $this->stackOffset -= 8;
         $offset = $this->stackOffset;
 
-        // 3. Store metadata in current environment
+        // 3. Guardar meta-data en el entorno (type, offset)
         $this->env->set($varName, [
             "type" => $type,
             "offset" => $offset
         ]);
 
-        // 4. Pop expression result, reserve space, store at variable slot
+        // 4. Pop de la expresión, reservar espacio en el stack, almacenar el valor de la expresión 
         $this->code->comment("Declaración de variable: " . $varName . " (" . $type . ") en [FP, #" . $offset . "]");
         $this->code->pop($this->r["T0"]);
         $this->code->subi($this->r["SP"], $this->r["SP"], 8);
@@ -101,33 +97,33 @@ class Compiler extends GrammarBaseVisitor {
     public function visitAssignmentStatement(AssignmentStatementContext $ctx) {
         $varName = $ctx->ID()->getText();
 
-        // 1. Evaluate expression
+        // 1. Evaluar expresión para obtener su tipo
         $exprType = $this->visit($ctx->e());
 
-        // 2. Resolve variable (walks parent chain)
+        // 2. Resolver variable en el entorno para obtener su tipo y offset
         $symbol = $this->env->get($varName);
         $offset = $symbol["offset"];
 
-        // 3. Type check: expression type must match declared type
+        // 3. Chequeo de tipos: el tipo de la expresión debe ser compatible con el tipo de la variable
         if ($exprType !== $symbol["type"]) {
             throw new Exception("No se puede asignar tipo " . $exprType . " a variable '" . $varName . "' de tipo " . $symbol["type"]);
         }
 
-        // 4. Pop result, store at variable's FP-relative slot
+        // 4. Pop del resultado de la expresión, almacenar el valor en el stack en la posición correspondiente a la variable
         $this->code->comment("Asignación a variable: " . $varName . " en [FP, #" . $offset . "]");
         $this->code->pop($this->r["T0"]);
         $this->code->str($this->r["T0"], $this->r["FP"], $offset);
     }
 
     public function visitIfStatement(IfStatementContext $ctx) {
-        // 1. Evaluate condition
+        // 1. Evaluar condición y verificar que sea de tipo int o bool
         $condType = $this->visit($ctx->e());
 
         if ($condType !== "int" && $condType !== "bool") {
             throw new Exception("La condición del 'if' debe ser de tipo int o bool, se obtuvo " . $condType);
         }
 
-        // 2. Pop condition into T0
+        // 2. Pop de la condición a un registro temporal (e.g. T0)
         $this->code->comment("Evaluando condición del if");
         $this->code->pop($this->r["T0"]);
 
@@ -137,34 +133,34 @@ class Compiler extends GrammarBaseVisitor {
             $elseLabel = $this->newLabel();
             $endLabel = $this->newLabel();
 
-            // 3. If false, jump to else
+            // 3. Si es falso salta a else
             $this->code->cbz($this->r["T0"], $elseLabel);
 
-            // 4. Visit if-body
+            // 4. Visitar el cuerpo del If
             $this->code->comment("Cuerpo del if");
             $this->visit($ctx->block());
 
-            // 5. Skip else
+            // 5. Saltar el else
             $this->code->b($endLabel);
 
-            // 6. Else body
+            // 6. Cuerpo del else
             $this->code->label($elseLabel);
             $this->code->comment("Cuerpo del else");
             $this->visit($ctx->else());
 
-            // 7. End
+            // 7. Final
             $this->code->label($endLabel);
         } else {
             $endLabel = $this->newLabel();
 
-            // 3. If false, jump to end
+            // 3. Si es falso salto al final
             $this->code->cbz($this->r["T0"], $endLabel);
 
-            // 4. Visit if-body
+            // 4. Visitar el cuerpo del If
             $this->code->comment("Cuerpo del if");
             $this->visit($ctx->block());
 
-            // 5. End
+            // 5. Final
             $this->code->label($endLabel);
         }
     }
@@ -173,35 +169,35 @@ class Compiler extends GrammarBaseVisitor {
         $startLabel = $this->newLabel();
         $endLabel = $this->newLabel();
 
-        // Push loop labels for break/continue
+        // Pushear los labels del ciclo actual para soportar break/continue
         $this->loopLabels[] = ["start" => $startLabel, "end" => $endLabel];
 
-        // 1. Loop start label
+        // 1. Etiquetar el inicio del ciclo
         $this->code->label($startLabel);
 
-        // 2. Evaluate condition
+        // 2. Evaluar condición
         $condType = $this->visit($ctx->e());
 
         if ($condType !== "int" && $condType !== "bool") {
             throw new Exception("La condición del 'while' debe ser de tipo int o bool, se obtuvo " . $condType);
         }
 
-        // 3. Pop condition, branch if false
+        // 3. Pop de la condición a un registro temporal (e.g. T0), si es falso saltar al final del ciclo
         $this->code->comment("Evaluando condición del while");
         $this->code->pop($this->r["T0"]);
         $this->code->cbz($this->r["T0"], $endLabel);
 
-        // 4. Visit loop body
+        // 4. Visitar el cuerpo del while
         $this->code->comment("Cuerpo del while");
         $this->visit($ctx->block());
 
-        // 5. Jump back to condition
+        // 5. Saltar a la condición
         $this->code->b($startLabel);
 
-        // 6. End label
+        // 6. Etiqueta final
         $this->code->label($endLabel);
 
-        // Pop loop labels
+        // Pop de los labels del ciclo actual
         array_pop($this->loopLabels);
     }
 
@@ -227,8 +223,6 @@ class Compiler extends GrammarBaseVisitor {
         return new BreakType();
     }
 
-    // ==================== Block ====================
-
     public function visitBlockStatement(BlockStatementContext $ctx) {
         $prevEnv = $this->env;
         $prevOffset = $this->stackOffset;
@@ -239,7 +233,7 @@ class Compiler extends GrammarBaseVisitor {
         foreach ($ctx->stmt() as $stmt) {            
             $flow = $this->visit($stmt);            
             if ($flow instanceof FlowType) {
-                // Reclaim stack before propagating flow
+                // Reclamar el stack de variables locales antes de salir del bloque
                 if ($this->stackOffset !== $prevOffset) {
                     $bytesToReclaim = $prevOffset - $this->stackOffset;
                     $this->code->addi($this->r["SP"], $this->r["SP"], $bytesToReclaim);
@@ -250,7 +244,7 @@ class Compiler extends GrammarBaseVisitor {
             }
         }
 
-        // Normal exit: reclaim local variables
+        // Normal: Reclamar el stack de variables locales al salir del bloque
         if ($this->stackOffset !== $prevOffset) {
             $bytesToReclaim = $prevOffset - $this->stackOffset;
             $this->code->comment("Saliendo del bloque, recuperando " . $bytesToReclaim . " bytes");
@@ -258,9 +252,7 @@ class Compiler extends GrammarBaseVisitor {
         }
         $this->stackOffset = $prevOffset;
         $this->env = $prevEnv;
-    }
-
-    // ==================== Expressions ==================== 
+    }    
 
     public function visitEqualityExpression(EqualityExpressionContext $ctx) {
         $leftType = $this->visit($ctx->left);
