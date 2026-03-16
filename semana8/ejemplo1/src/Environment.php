@@ -16,13 +16,13 @@ class Environment {
         $this->values[$key] = $value;
     }
 
-    public function get($key) {
-        $actual = $this->values[$key];        
-        if ($actual !== null) {
-            return $actual;
+    public function get($key) {        
+        $exists = array_key_exists($key, $this->values);
+        if ($exists) {
+            return $this->values[$key];
         }
 
-        if ($actual === null && $this->father !== null) {
+        if ($this->father !== null) {
             return $this->father->get($key);
         }
         
@@ -42,7 +42,7 @@ class Environment {
     }
 
     public function assign($key, $value) {    
-        if ($this->values[$key] !== null) {
+        if (array_key_exists($key, $this->values)) {
             $this->values[$key] = $value;
             return;
         }

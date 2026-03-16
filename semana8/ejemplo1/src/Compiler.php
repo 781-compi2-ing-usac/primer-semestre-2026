@@ -260,7 +260,7 @@ class Compiler extends GrammarBaseVisitor {
         $this->env = $prevEnv;
     }
 
-    // ==================== Expressions ====================
+    // ==================== Expressions ==================== 
 
     public function visitEqualityExpression(EqualityExpressionContext $ctx) {
         $leftType = $this->visit($ctx->left);
@@ -321,20 +321,20 @@ class Compiler extends GrammarBaseVisitor {
             }
 
             $this->code->comment("Visitando expresión de suma/resta: " . $op);
-            $this->code->comment("Evaluando el primer operando");
-            $this->code->pop($this->r["T0"]);
             $this->code->comment("Evaluando el segundo operando");
+            $this->code->pop($this->r["T0"]);
+            $this->code->comment("Evaluando el primer operando");
             $this->code->pop($this->r["T1"]);
 
             switch ($op) {
                 case '+':
-                    $this->code->comment("Sumando T0 con T1");
-                    $this->code->add($this->r["T0"], $this->r["T0"], $this->r["T1"]);
+                    $this->code->comment("Sumando T1 con T0");
+                    $this->code->add($this->r["T0"], $this->r["T1"], $this->r["T0"]);
                     $this->code->push($this->r["T0"]);
                     break;
                 case '-':
-                    $this->code->comment("Restando T0 con T1");
-                    $this->code->sub($this->r["T0"], $this->r["T0"], $this->r["T1"]);
+                    $this->code->comment("Restando T1 con T0");
+                    $this->code->sub($this->r["T0"], $this->r["T1"], $this->r["T0"]);
                     $this->code->push($this->r["T0"]);
                     break;
                 default:
@@ -357,20 +357,20 @@ class Compiler extends GrammarBaseVisitor {
             }
 
             $this->code->comment("Visitando expresión de producto: " . $op);
-            $this->code->comment("Evaluando el primer operando");
-            $this->code->pop($this->r["T0"]);
             $this->code->comment("Evaluando el segundo operando");
+            $this->code->pop($this->r["T0"]);
+            $this->code->comment("Evaluando el primer operando");
             $this->code->pop($this->r["T1"]);
 
             switch ($op) {
                 case '*':
-                    $this->code->comment("Multiplicando T0 con T1");  
-                    $this->code->mul($this->r["T0"], $this->r["T0"], $this->r["T1"]);
+                    $this->code->comment("Multiplicando T1 con T0");  
+                    $this->code->mul($this->r["T0"], $this->r["T1"], $this->r["T0"]);
                     $this->code->push($this->r["T0"]);                  
                     break;                 
                 case '/':
-                    $this->code->comment("Dividiendo T0 con T1");
-                    $this->code->div($this->r["T0"], $this->r["T0"], $this->r["T1"]);
+                    $this->code->comment("Dividiendo T1 con T0");
+                    $this->code->div($this->r["T0"], $this->r["T1"], $this->r["T0"]);
                     $this->code->push($this->r["T0"]);
                     break;
                 default:

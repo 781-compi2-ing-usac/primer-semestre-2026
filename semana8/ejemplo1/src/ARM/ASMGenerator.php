@@ -183,8 +183,16 @@ class ASMGenerator {
         $code .= "mov w3, #0\n";
         $code .= "strb w3, [x2]\n";
 
-        $code .= "mov x4, #10\n";
-        $code .= "mov x5, x0\n";
+        $code .= "mov x5, x0\n";        
+        $code .= "mov x4, #10\n";        
+        $code .= "// Sign Flag \n";
+        $code .= "mov x10, #0\n";
+
+        $code .= "// Check if negative \n";
+        $code .= "cmp x5, #0\n";
+        $code .= "bge loop\n";
+        $code .= "neg x5, x5\n";        
+        $code .= "mov x10, #1\n";
 
         $code .= "loop:\n";
         $code .= "udiv x6, x5, x4\n";
@@ -196,6 +204,13 @@ class ASMGenerator {
         $code .= "mov x5, x6\n";
         $code .= "cbnz x6, loop\n";
 
+        $code .= "cmp x10, #0\n";
+        $code .= "beq done\n";
+        $code .= "sub x2, x2, #1\n";
+        $code .= "mov w7, #45\n";
+        $code .= "strb w7, [x2]\n";
+
+        $code .= "done:\n";
         $code .= "ldr x3, =buffer\n";
         $code .= "add x3, x3, #31\n";
         $code .= "sub x1, x3, x2\n";
@@ -221,15 +236,11 @@ class ASMGenerator {
 
         foreach ($this->instr as $inst) {
             $str = (string)$inst;
-            // Labels (e.g. "L0:") should not be indented
-            if (preg_match('/^[A-Za-z_]\w*:$/', $str)) {
-                $out .= $str . "\n";
-            } else {
-                $out .= "    " . $str . "\n";
-            }
+            $out .= $str . "\n";
         }        
         $out .= $this->itoa();
         $out .= $this->rodata();
+        $out .= "\n";
         return $out;
     }
 }
