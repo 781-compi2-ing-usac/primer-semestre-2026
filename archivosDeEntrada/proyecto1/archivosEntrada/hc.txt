@@ -1,0 +1,68 @@
+Hoja de Calificación Proyecto 1				
+				
+				
+Criterio	Puntos Máximos	Puntuación Obtenida	Realizado (estudiante)	Observaciones
+1 Funcionalidades Básicas	21			
+1.1 Declaración larga de variables (int32, float32, bool, rune, string) 0.2 puntos c/u	1			
+1.2 Asignación de variables (int32, float32, bool, rune, string) 0.2 puntos c/u	1			
+1.3 Formato de identificadores (no iniciar con caracteres especiales, case sensitive y palabras reservadas) 0.1 puntos c/u	0.5			
+1.4 Declaración corta de variables (int32, float32, bool, rune, string) 0.4 puntos c/u	2			
+1.5 Declaración larga sin inicializar (int32, float32, bool, rune, string) 0.2 puntos c/u	1			
+1.6 Declaración múltiple de variables (larga y corta)	2			
+1.7 Declaración de constantes 	1			
+1.8 Manejo de nil	2			
+1.9 Comentarios de una línea	0.25			
+1.10 Comentarios multilínea	0.25			
+1.11 Operaciones Aritméticas (0.4pts c/u)	2			
+1.12 Operaciones relacionales (0.4pts c/u)	2			
+1.13 Operaciones lógicas (1pt c/u)	2			
+1.14 Restricción de corto circuito	2			
+1.15 Operadores de asignación (0.4pts c/u)	2			
+"2 Funcionalidades
+Intermedias"	18			
+2.2 if	1			
+2.3 if else	1			
+2.4 switch/case/default	3			
+2.5 for clásico	3			
+2.6 for condicional	3			
+2.7 for infinito	3			
+2.8 break	2			
+2.9 continue	2			
+3 Funciones	23			
+"3.1 Función no recursiva
+sin parámetros (imprimirArbol)"	2			
+3.2 Función con parámetros no recursiva (calcularVolumenPiramide)	2			
+3.3 funciones por referencia (ordenamientoSeleccion e intercambioValores - 1.5 pts c/u)	3			
+3.4 función no recursiva múltiple retorno (division)	4			
+3.4 función recursiva con un retorno (potencia)	4			
+3.5 función recursiva con múltiple retorno (Función Algorítmo de Euclides)	5			
+3.6 función main()	1			
+3.7 hoisting	2			
+4 Funciones embebidas	5			
+4.1 fmt.Println()	1			
+4.2 len()	1			
+4.3 now()	1			
+4.4 substr()	1			
+4.5 typeOf()	1			
+5 Arreglos	22			
+5.1 Declaración no inicializada e inicializada (0.5pts c/u)	1			
+5.2 Arreglos de tipos estáticos (0.2pts c/u)	1			
+5.3 Acceso y Modificación de elementos (0.5pts c/u)	1			
+5.4 Declaración multidimensional inicializada y no inicializada (0.5pts c/u)	1			
+5.5 Acceso y Modificación de elementos en arreglo multidimensional (0.5pts c/u)	1			
+5.6 Función de Ídice de inestabilidad por fila (Matriz)	4			
+5.7 Función de regla de Cramer (Matriz + Arreglo)	4			
+5.8 Función Promedio de Capas (Cubo)	4			
+5.9 Función Softmax (Retorno de Matriz)	5			
+6 GUI	5			
+6.1 Barra de acciones	1			
+6.2 Panel de edición de código	1			
+6.3 Consola de salida	1			
+6.4 Panel de reportes	2			
+7. Reportes	4			
+7.1 Tabla de símbolos	2			
+7.2 Reporte de Errores (0.2pts por cada tipo de error)	2			
+8 Documentación	2			
+8.1 Manual de Usuario	1			
+8.2 Manual Técnico	1			
+Total	100			
