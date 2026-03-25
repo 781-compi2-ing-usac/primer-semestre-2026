@@ -11,8 +11,12 @@ trait PrintF
     public function visitPrintStatement(PrintStatementContext $ctx) {
         $result = $this->visit($ctx->expresion());
         
-        $this->asmGenerador->comment("Print");
-        $this->regs->pop();
+        $this->asmGenerador->comment("Imprimiendo valor");
+        
+        $valueReg = $this->stack->popValue();
+        
+        $this->asmGenerador->mov("x0", $valueReg);
+        
         $this->asmGenerador->printInt();
     }
 

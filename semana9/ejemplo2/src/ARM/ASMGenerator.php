@@ -31,9 +31,16 @@ class ASMGenerator {
     private $instrucciones = [];
     private $r;
     private $labelCounter = 0;
+    private $functionLabels = [];
 
     public function __construct() {        
         $this->r = include __DIR__ . "/Constants.php";
+    }
+
+    public function generateLabel($prefix = "label") {
+        $label = $prefix . "_" . $this->labelCounter;
+        $this->labelCounter++;
+        return $label;
     }
 
     public function add($rd, $rs1, $rs2) {
@@ -102,6 +109,54 @@ class ASMGenerator {
 
     public function bl($label) {
         $this->instrucciones[] = new Instruction("bl", $label);
+    }
+
+    public function ret() {
+        $this->instrucciones[] = new Instruction("ret");
+    }
+
+    public function br($reg) {
+        $this->instrucciones[] = new Instruction("br", $reg);
+    }
+
+    public function b($label) {
+        $this->instrucciones[] = new Instruction("b", $label);
+    }
+
+    public function beq($label) {
+        $this->instrucciones[] = new Instruction("b.eq", $label);
+    }
+
+    public function bne($label) {
+        $this->instrucciones[] = new Instruction("b.ne", $label);
+    }
+
+    public function blt($label) {
+        $this->instrucciones[] = new Instruction("b.lt", $label);
+    }
+
+    public function ble($label) {
+        $this->instrucciones[] = new Instruction("b.le", $label);
+    }
+
+    public function bgt($label) {
+        $this->instrucciones[] = new Instruction("b.gt", $label);
+    }
+
+    public function bge($label) {
+        $this->instrucciones[] = new Instruction("b.ge", $label);
+    }
+
+    public function label($name) {
+        $this->instrucciones[] = new Instruction($name . ":");
+    }
+
+    public function registerFunction($name, $label) {
+        $this->functionLabels[$name] = $label;
+    }
+
+    public function getFunctionLabel($name) {
+        return $this->functionLabels[$name] ?? null;
     }
 
     public function push($rd=null) {
@@ -180,6 +235,10 @@ class ASMGenerator {
         $rodata = ".section .rodata\n";
         $rodata .= "newline: .asciz \"\\n\"\n";
         return $rodata;
+    }
+
+    public function addFunctionInstructions($instructions) {
+        $this->instrucciones = array_merge($this->instrucciones, $instructions);
     }
 
     public function toString() {

@@ -8,24 +8,27 @@ use Context\ReferenceExpressionContext;
 use Context\GroupedExpressionContext;
 use Context\PrimitivoExpressionContext;
 use App\Env\Result;
+use Instruction;
 
 trait Primitivos
 {
     public function visitIntExpression(IntExpressionContext $ctx) {
         $number = intval($ctx->INT()->getText());
-        $this->asmGenerador->comment("Int: " . $number);
-        return $this->regs->push($number);
+        $this->asmGenerador->comment("Cargando entero: " . $number);
+        $this->stack->pushImmediate($number);
+        return Result::stack(Result::INT, $this->stack->getStackOffset());
     }
 
     public function visitFloatExpression(FloatExpressionContext $ctx) {
-        $number = (int)floatval($ctx->FLOAT()->getText());
-        $this->asmGenerador->comment("Float: " . $number);
-        return $this->regs->push($number);
+        $number = intval($ctx->FLOAT()->getText());
+        $this->asmGenerador->comment("Cargando float: " . $number);
+        $this->stack->pushImmediate($number);
+        return Result::stack(Result::FLOAT, $this->stack->getStackOffset());
     }
 
     public function visitReferenceExpression(ReferenceExpressionContext $ctx) {
         $id = $ctx->ID()->getText();
-        $this->asmGenerador->comment("Ref: " . $id);
+        $this->asmGenerador->comment("Referencia a variable: " . $id);
         return Result::buildVacio();
     }
 

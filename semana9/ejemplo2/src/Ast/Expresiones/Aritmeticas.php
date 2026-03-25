@@ -8,30 +8,50 @@ use App\Env\Result;
 
 trait Aritmeticas
 {
+
     public function visitAritmeticaExpression(AritmeticaExpressionContext $ctx) {
         $leftResult = $this->visit($ctx->expresion(0));
         $rightResult = $this->visit($ctx->expresion(1));
         
         $op = $ctx->op->getText();
-        $this->asmGenerador->comment("Aritmetica: " . $op);
+        $this->asmGenerador->comment("Visitando expresión aritmética: " . $op);
 
-        $this->regs->pop();
-        $this->asmGenerador->ldr("x1", "sp");
-        $this->regs->pop();
-        $this->asmGenerador->add("x0", "x1", "x0");
-        $this->regs->push(0);
+        $rightReg = $this->stack->popValue();
+        $leftReg = $this->stack->popValue();
 
-        return Result::stack(Result::INT, 0);
+        switch ($op) {
+            case '+':
+                $this->asmGenerador->add("x9", $leftReg, $rightReg);
+                break;
+            case '-':
+                $this->asmGenerador->sub("x9", $leftReg, $rightReg);
+                break;
+            case '*':
+                $this->asmGenerador->mul("x9", $leftReg, $rightReg);
+                break;
+            case '/':
+                $this->asmGenerador->div("x9", $leftReg, $rightReg);
+                break;
+            default:
+                throw new \Exception("Operador desconocido: " . $op);
+        }
+
+        $this->stack->pushValue("x9");
+
+        return Result::stack(Result::INT, $this->stack->getStackOffset());
     }
 
     public function visitNegacionExpression(NegacionExpressionContext $ctx) {
         $operandResult = $this->visit($ctx->expresion());
         
-        $this->asmGenerador->comment("Negacion");
-        $this->regs->pop();
-        $this->asmGenerador->mvn("x0", "x0");
-        $this->regs->push(0);
+        $this->asmGenerador->comment("Visitando expresión de negación unaria");
         
-        return Result::stack(Result::INT, 0);
+        $operandReg = $this->stack->popValue();
+        
+        $this->asmGenerador->sub("x9", "xzr", $operandReg);
+        
+        $this->stack->pushValue("x9");
+
+        return Result::stack(Result::INT, $this->stack->getStackOffset());
     }
 }

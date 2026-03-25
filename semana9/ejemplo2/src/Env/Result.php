@@ -14,6 +14,7 @@ class Result
     public $valor;
     public $onStack;
     public $offset;
+    public $isReturn = false;
 
     public function __construct($tipo, $valor = null, $onStack = false, $offset = 0)
     {
