@@ -31,4 +31,6 @@ return $registers = array(
     "S8" => "x26",
     "S9" => "x27",
     "S10" => "x28",
+    "HP" => "x20",
+    "HEAP_END" => "x21",
 );

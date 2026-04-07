@@ -110,6 +110,10 @@ class ASMGenerator {
         $this->instr[] = new Instruction("b", $label);
     }
 
+    public function bcond($cond, $label) {
+        $this->instr[] = new Instruction("b." . $cond, $label);
+    }
+
     public function cbz($rs, $label) {
         $this->instr[] = new Instruction("cbz", $rs, $label);
     }
@@ -231,6 +235,8 @@ class ASMGenerator {
         $out .= ".section .bss\n";
         // Buffer para imprimir enteros de hasta 10 dígitos + signo + null terminator
         $out .= "buffer: .skip 32\n"; 
+        $out .= "heap_base: .skip 1048576\n";
+        $out .= "heap_end:\n";
         $out .= ".section .text\n";        
         $out .= "_start:\n";
 
