@@ -22,36 +22,45 @@ str x9, [sp, #0]
 mov x9, #3
 sub sp, sp, #8
 str x9, [sp, #0]
-// Heap alloc de 40 bytes
+// Cargando entero: 4
+mov x9, #4
+sub sp, sp, #8
+str x9, [sp, #0]
+// Heap alloc de 56 bytes
 mov x13, x20
-mov x9, #40
+mov x9, #56
 add x10, x20, x9
 cmp x10, x21
 b.hi _panic_oom
 mov x20, x10
-mov x9, #1
+mov x9, #2
 str x9, [x13, #0]
-mov x9, #3
+mov x9, #2
 str x9, [x13, #8]
+mov x9, #2
+str x9, [x13, #16]
+ldr x9, [sp, #0]
+add sp, sp, #8
+str x9, [x13, #48]
+ldr x9, [sp, #0]
+add sp, sp, #8
+str x9, [x13, #40]
 ldr x9, [sp, #0]
 add sp, sp, #8
 str x9, [x13, #32]
 ldr x9, [sp, #0]
 add sp, sp, #8
 str x9, [x13, #24]
-ldr x9, [sp, #0]
-add sp, sp, #8
-str x9, [x13, #16]
 sub sp, sp, #8
 str x13, [sp, #0]
-// Declaración de variable: a (array<int>) en [FP, #-8]
+// Declaración de variable: m (array<int> rank=2 dims=2x2) en [FP, #-8]
 ldr x9, [sp, #0]
 add sp, sp, #8
 sub sp, sp, #8
 str x9, [x29, #-8]
 ldr x10, [x29, #-8]
-// Cargando entero: 3
-mov x9, #3
+// Cargando entero: 2
+mov x9, #2
 sub sp, sp, #8
 str x9, [sp, #0]
 ldr x9, [sp, #0]
@@ -61,10 +70,25 @@ b.lt _panic_oob
 ldr x11, [x10, #8]
 cmp x9, x11
 b.ge _panic_oob
-mov x12, #8
-mul x12, x9, x12
+mov x12, x9
+// Cargando entero: 0
+mov x9, #0
+sub sp, sp, #8
+str x9, [sp, #0]
+ldr x9, [sp, #0]
+add sp, sp, #8
+cmp x9, #0
+b.lt _panic_oob
+ldr x11, [x10, #16]
+cmp x9, x11
+b.ge _panic_oob
+ldr x11, [x10, #16]
+mul x12, x12, x11
+add x12, x12, x9
+mov x11, #8
+mul x12, x12, x11
 add x11, x10, x12
-add x11, x11, #16
+add x11, x11, #24
 ldr x12, [x11, #0]
 sub sp, sp, #8
 str x12, [sp, #0]

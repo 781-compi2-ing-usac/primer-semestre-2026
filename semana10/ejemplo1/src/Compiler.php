@@ -65,7 +65,11 @@ class Compiler extends GrammarBaseVisitor {
             return $type["kind"];
         }
 
-        return "array<" . $this->typeToString($type["elem"]) . ">";
+        $elem = $this->typeToString($type["elem"]);
+        $rank = array_key_exists("rank", $type) ? $type["rank"] : 1;
+        $dims = array_key_exists("dims", $type) ? $type["dims"] : [];
+        $dimText = empty($dims) ? "" : " dims=" . implode("x", $dims);
+        return "array<" . $elem . "> rank=" . $rank . $dimText;
     }
 
     private function typeEquals($a, $b) {
@@ -90,6 +94,18 @@ class Compiler extends GrammarBaseVisitor {
         }
 
         if (!array_key_exists("elem", $a) || !array_key_exists("elem", $b)) {
+            return false;
+        }
+
+        $rankA = array_key_exists("rank", $a) ? $a["rank"] : 1;
+        $rankB = array_key_exists("rank", $b) ? $b["rank"] : 1;
+        if ($rankA !== $rankB) {
+            return false;
+        }
+
+        $dimsA = array_key_exists("dims", $a) ? $a["dims"] : null;
+        $dimsB = array_key_exists("dims", $b) ? $b["dims"] : null;
+        if ($dimsA !== null && $dimsB !== null && $dimsA !== $dimsB) {
             return false;
         }
 
@@ -119,7 +135,17 @@ class Compiler extends GrammarBaseVisitor {
         return [
             "kind" => "array",
             "elem" => $elemType,
-            "rank" => 1
+            "rank" => 1,
+            "dims" => []
+        ];
+    }
+
+    private function makeArrayTypeWithRankAndDims($elemType, $rank, $dims) {
+        return [
+            "kind" => "array",
+            "elem" => $elemType,
+            "rank" => $rank,
+            "dims" => $dims
         ];
     }
 
@@ -195,9 +221,14 @@ class Compiler extends GrammarBaseVisitor {
     }
 
     private function emitBoundsCheck($baseReg, $idxReg) {
+        $this->emitBoundsCheckAtDim($baseReg, $idxReg, 0);
+    }
+
+    private function emitBoundsCheckAtDim($baseReg, $idxReg, $dimIndex) {
+        $dimOffset = 8 + ($dimIndex * 8);
         $this->code->cmp($idxReg, "#0");
         $this->code->bcond("lt", "_panic_oob");
-        $this->code->ldr($this->r["T2"], $baseReg, 8);
+        $this->code->ldr($this->r["T2"], $baseReg, $dimOffset);
         $this->code->cmp($idxReg, $this->r["T2"]);
         $this->code->bcond("ge", "_panic_oob");
     }
@@ -207,6 +238,156 @@ class Compiler extends GrammarBaseVisitor {
         $this->code->mul($this->r["T3"], $idxReg, $this->r["T3"]);
         $this->code->add($addrReg, $baseReg, $this->r["T3"]);
         $this->code->addi($addrReg, $addrReg, 16);
+    }
+
+    private function isArrayLiteralNode($node) {
+        return $node instanceof ArrayExpressionContext;
+    }
+
+    private function getArrayLiteralContext($node) {
+        if ($node instanceof ArrayExpressionContext) {
+            return $node;
+        }
+
+        if (!is_object($node) || !method_exists($node, "getChildCount") || !method_exists($node, "getChild")) {
+            return null;
+        }
+
+        $count = $node->getChildCount();
+        for ($i = 0; $i < $count; $i++) {
+            $child = $node->getChild($i);
+            $found = $this->getArrayLiteralContext($child);
+            if ($found !== null) {
+                return $found;
+            }
+        }
+
+        return null;
+    }
+
+    private function concatLists($lists) {
+        $out = [];
+        foreach ($lists as $list) {
+            foreach ($list as $item) {
+                $out[] = $item;
+            }
+        }
+        return $out;
+    }
+
+    private function analyzeArrayLiteralNode($expr) {
+        $arrayCtx = $this->getArrayLiteralContext($expr);
+
+        if ($arrayCtx === null) {
+            $type = $this->visit($expr);
+            if (!$this->isIntOrBoolType($type)) {
+                throw new Exception("En esta etapa, los arrays solo admiten escalares int o bool; se obtuvo " . $this->typeToString($type));
+            }
+            return [
+                "scalarType" => $type,
+                "dims" => [],
+                "exprs" => [$expr]
+            ];
+        }
+
+        $elements = $this->getArrayLiteralElements($arrayCtx);
+        if (count($elements) === 0) {
+            throw new Exception("No se permiten arrays vacíos en esta etapa");
+        }
+
+        $allArrays = true;
+        $allScalars = true;
+        foreach ($elements as $el) {
+            $isArray = $this->getArrayLiteralContext($el) !== null;
+            if ($isArray) {
+                $allScalars = false;
+            } else {
+                $allArrays = false;
+            }
+        }
+
+        if (!$allArrays && !$allScalars) {
+            throw new Exception("Array multidimensional debe ser rectangular y no mezclar escalares con sub-arrays");
+        }
+
+        if ($allScalars) {
+            $scalarType = null;
+            foreach ($elements as $el) {
+                $currentType = $this->visit($el);
+                if ($scalarType === null) {
+                    $scalarType = $currentType;
+                    continue;
+                }
+
+                if (!$this->typeEquals($scalarType, $currentType)) {
+                    throw new Exception("Array literal requiere elementos homogéneos, se obtuvo " . $this->typeToString($scalarType) . " y " . $this->typeToString($currentType));
+                }
+            }
+
+            if (!$this->isIntOrBoolType($scalarType)) {
+                throw new Exception("En esta etapa, los arrays solo admiten escalares int o bool; se obtuvo " . $this->typeToString($scalarType));
+            }
+
+            return [
+                "scalarType" => $scalarType,
+                "dims" => [count($elements)],
+                "exprs" => $elements
+            ];
+        }
+
+        $childInfos = [];
+        foreach ($elements as $el) {
+            $childInfos[] = $this->analyzeArrayLiteralNode($el);
+        }
+
+        $firstType = $childInfos[0]["scalarType"];
+        $firstDims = $childInfos[0]["dims"];
+        foreach ($childInfos as $info) {
+            if (!$this->typeEquals($firstType, $info["scalarType"])) {
+                throw new Exception("Sub-arrays deben tener el mismo tipo escalar base");
+            }
+            if ($firstDims !== $info["dims"]) {
+                throw new Exception("Array multidimensional debe ser rectangular (sub-arrays con mismas dimensiones)");
+            }
+        }
+
+        return [
+            "scalarType" => $firstType,
+            "dims" => array_merge([count($elements)], $firstDims),
+            "exprs" => $this->concatLists(array_map(function($x) { return $x["exprs"]; }, $childInfos))
+        ];
+    }
+
+    private function emitRowMajorAddrFromIndexes($baseReg, $indexes, $rank, $addrReg) {
+        if (count($indexes) !== $rank) {
+            throw new Exception("Se esperaban " . $rank . " índices para acceso row-major, se recibieron " . count($indexes));
+        }
+
+        foreach ($indexes as $dim => $indexExpr) {
+            $indexType = $this->visit($indexExpr);
+            if (!$this->isIntType($indexType)) {
+                throw new Exception("El índice de array debe ser int, se obtuvo " . $this->typeToString($indexType));
+            }
+
+            $this->code->pop($this->r["T0"]);
+            $this->emitBoundsCheckAtDim($baseReg, $this->r["T0"], $dim);
+
+            if ($dim === 0) {
+                $this->code->mov($this->r["T3"], $this->r["T0"]);
+                continue;
+            }
+
+            $dimOffset = 8 + ($dim * 8);
+            $this->code->ldr($this->r["T2"], $baseReg, $dimOffset);
+            $this->code->mul($this->r["T3"], $this->r["T3"], $this->r["T2"]);
+            $this->code->add($this->r["T3"], $this->r["T3"], $this->r["T0"]);
+        }
+
+        $headerBytes = ($rank + 1) * 8;
+        $this->code->li($this->r["T2"], 8);
+        $this->code->mul($this->r["T3"], $this->r["T3"], $this->r["T2"]);
+        $this->code->add($addrReg, $baseReg, $this->r["T3"]);
+        $this->code->addi($addrReg, $addrReg, $headerBytes);
     }
 
     private function emitRuntimeErrorHandlers() {
@@ -594,47 +775,36 @@ class Compiler extends GrammarBaseVisitor {
     }
 
     public function visitArrayExpression(ArrayExpressionContext $ctx) {
-        $elements = $this->getArrayLiteralElements($ctx);
+        $analysis = $this->analyzeArrayLiteralNode($ctx);
+        $elemType = $analysis["scalarType"];
+        $dims = $analysis["dims"];
+        $rank = count($dims);
 
-        if (count($elements) === 0) {
-            throw new Exception("No se permiten arrays vacíos en esta etapa");
+        $totalElements = 1;
+        foreach ($dims as $d) {
+            $totalElements *= $d;
         }
 
-        $elemType = null;
-        foreach ($elements as $expr) {
-            $currentType = $this->visit($expr);
-            if ($elemType === null) {
-                $elemType = $currentType;
-                continue;
-            }
-
-            if (!$this->typeEquals($elemType, $currentType)) {
-                throw new Exception("Array literal requiere elementos homogéneos, se obtuvo " . $this->typeToString($elemType) . " y " . $this->typeToString($currentType));
-            }
-        }
-
-        if (!$this->isIntOrBoolType($elemType)) {
-            throw new Exception("En esta etapa, los arrays 1D solo admiten elementos int o bool, se obtuvo " . $this->typeToString($elemType));
-        }
-
-        $len = count($elements);
-        $bytes = 16 + ($len * 8);
+        $headerBytes = ($rank + 1) * 8;
+        $bytes = $headerBytes + ($totalElements * 8);
 
         $this->emitHeapAllocFixed($bytes, $this->r["T4"]);
 
-        $this->code->li($this->r["T0"], 1);
+        $this->code->li($this->r["T0"], $rank);
         $this->code->str($this->r["T0"], $this->r["T4"], 0);
-        $this->code->li($this->r["T0"], $len);
-        $this->code->str($this->r["T0"], $this->r["T4"], 8);
+        for ($i = 0; $i < $rank; $i++) {
+            $this->code->li($this->r["T0"], $dims[$i]);
+            $this->code->str($this->r["T0"], $this->r["T4"], 8 + ($i * 8));
+        }
 
-        for ($i = $len - 1; $i >= 0; $i--) {
-            $offset = 16 + ($i * 8);
+        for ($i = $totalElements - 1; $i >= 0; $i--) {
+            $offset = $headerBytes + ($i * 8);
             $this->code->pop($this->r["T0"]);
             $this->code->str($this->r["T0"], $this->r["T4"], $offset);
         }
 
         $this->code->push($this->r["T4"]);
-        return $this->makeArrayType($elemType);
+        return $this->makeArrayTypeWithRankAndDims($elemType, $rank, $dims);
     }
 
     public function visitArrayAccessExpression(ArrayAccessExpressionContext $ctx) {
@@ -646,39 +816,21 @@ class Compiler extends GrammarBaseVisitor {
             throw new Exception("Acceso a array sin índices");
         }
 
-        if (count($indexes) !== 1) {
-            throw new Exception("En esta etapa solo se soporta acceso a arrays de 1 dimensión");
-        }
-
         $currentType = $symbol["type"];
-        $this->code->ldr($this->r["T1"], $this->r["FP"], $symbol["offset"]);
-
-        $last = count($indexes) - 1;
-        foreach ($indexes as $i => $indexExpr) {
-            if (!$this->isArrayType($currentType)) {
-                throw new Exception("Se intentó indexar un valor no-array en '" . $varName . "'");
-            }
-
-            $indexType = $this->visit($indexExpr);
-            if (!$this->isIntType($indexType)) {
-                throw new Exception("El índice de array debe ser int, se obtuvo " . $this->typeToString($indexType));
-            }
-
-            $this->code->pop($this->r["T0"]);
-            $this->emitBoundsCheck($this->r["T1"], $this->r["T0"]);
-            $this->emitArrayElemAddr($this->r["T1"], $this->r["T0"], $this->r["T2"]);
-
-            if ($i === $last) {
-                $this->code->ldr($this->r["T3"], $this->r["T2"], 0);
-                $this->code->push($this->r["T3"]);
-                return $currentType["elem"];
-            }
-
-            $this->code->ldr($this->r["T1"], $this->r["T2"], 0);
-            $currentType = $currentType["elem"];
+        if (!$this->isArrayType($currentType)) {
+            throw new Exception("Se intentó indexar un valor no-array en '" . $varName . "'");
         }
 
-        throw new Exception("Error interno en acceso de array");
+        $rank = array_key_exists("rank", $currentType) ? $currentType["rank"] : 1;
+        if (count($indexes) !== $rank) {
+            throw new Exception("Se esperaban " . $rank . " índices para '" . $varName . "', se recibieron " . count($indexes));
+        }
+
+        $this->code->ldr($this->r["T1"], $this->r["FP"], $symbol["offset"]);
+        $this->emitRowMajorAddrFromIndexes($this->r["T1"], $indexes, $rank, $this->r["T2"]);
+        $this->code->ldr($this->r["T3"], $this->r["T2"], 0);
+        $this->code->push($this->r["T3"]);
+        return $currentType["elem"];
     }
 
     public function visitArrayAssignmentStatement(ArrayAssignmentStatementContext $ctx) {
@@ -692,45 +844,28 @@ class Compiler extends GrammarBaseVisitor {
             throw new Exception("Asignación a array inválida");
         }
 
-        if (count($indexes) !== 1) {
-            throw new Exception("En esta etapa solo se soporta asignación en arrays de 1 dimensión");
-        }
-
         $assignType = $this->visit($assignExpr);
         $currentType = $symbol["type"];
-        $last = count($indexes) - 1;
+        if (!$this->isArrayType($currentType)) {
+            throw new Exception("Se intentó indexar un valor no-array en '" . $varName . "'");
+        }
+
+        $rank = array_key_exists("rank", $currentType) ? $currentType["rank"] : 1;
+        if (count($indexes) !== $rank) {
+            throw new Exception("Se esperaban " . $rank . " índices para asignar en '" . $varName . "', se recibieron " . count($indexes));
+        }
 
         $this->code->ldr($this->r["T1"], $this->r["FP"], $symbol["offset"]);
 
-        foreach ($indexes as $i => $indexExpr) {
-            if (!$this->isArrayType($currentType)) {
-                throw new Exception("Se intentó indexar un valor no-array en '" . $varName . "'");
-            }
-
-            $indexType = $this->visit($indexExpr);
-            if (!$this->isIntType($indexType)) {
-                throw new Exception("El índice de array debe ser int, se obtuvo " . $this->typeToString($indexType));
-            }
-
-            $this->code->pop($this->r["T0"]);
-            $this->emitBoundsCheck($this->r["T1"], $this->r["T0"]);
-            $this->emitArrayElemAddr($this->r["T1"], $this->r["T0"], $this->r["T2"]);
-
-            if ($i === $last) {
-                $expectedType = $currentType["elem"];
-                if (!$this->typeEquals($assignType, $expectedType)) {
-                    throw new Exception("Tipo incompatible en asignación de array, se esperaba " . $this->typeToString($expectedType) . " y se obtuvo " . $this->typeToString($assignType));
-                }
-                $this->code->pop($this->r["T3"]);
-                $this->code->str($this->r["T3"], $this->r["T2"], 0);
-                return null;
-            }
-
-            $this->code->ldr($this->r["T1"], $this->r["T2"], 0);
-            $currentType = $currentType["elem"];
+        $expectedType = $currentType["elem"];
+        if (!$this->typeEquals($assignType, $expectedType)) {
+            throw new Exception("Tipo incompatible en asignación de array, se esperaba " . $this->typeToString($expectedType) . " y se obtuvo " . $this->typeToString($assignType));
         }
 
-        throw new Exception("Error interno en asignación de array");
+        $this->emitRowMajorAddrFromIndexes($this->r["T1"], $indexes, $rank, $this->r["T2"]);
+        $this->code->pop($this->r["T3"]);
+        $this->code->str($this->r["T3"], $this->r["T2"], 0);
+        return null;
     }
 
     public function visitBoolExpression(BoolExpressionContext $ctx) {
