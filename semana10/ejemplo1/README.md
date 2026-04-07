@@ -1,195 +1,173 @@
-# Semana 8 - Ejemplo 1
+# Semana 10 - Ejemplo 1
 
 ## Descripción General
 
-En esta semana el compilador evoluciona de un backend aritmético básico a un **compilador con soporte completo de variables, sistema de tipos, ámbitos léxicos y estructuras de control**. Se implementan declaraciones y asignaciones de variables con direccionamiento relativo al frame pointer, un sistema de verificación de tipos en tiempo de compilación (int y bool), manejo de ámbitos (scopes) mediante la clase `Environment`, y las sentencias `if`/`else`, `while`, `break` y `continue` con lowering a etiquetas y saltos condicionales ARM64.
+En esta semana el compilador agrega el bloque de memoria dinámica del lenguaje: **heap pointer + arrays + accesos multiíndice en row-major order**. Se mantiene la arquitectura de semana anterior (entorno léxico, tipos, control de flujo, stack con `FP`) y se extiende con:
 
-El hito conceptual es transformar el compilador de un emisor de expresiones aritméticas a un **generador de código completo** capaz de manejar estado mutable (variables), decisiones (condicionales) y repetición (ciclos) usando únicamente registros, memoria de pila y saltos.
+- Inicialización de heap en tiempo de ejecución (`heap_base`, `heap_end`, `HP`).
+- Reserva de memoria por *bump allocator* (sin `free`, sin GC).
+- Literales de arrays en heap con header `rank + dims + data`.
+- Acceso y asignación por índices (`arr[i]`, `m[i][j]`, `t[i][j][k]`) con cálculo row-major.
+- Validaciones semánticas (tipos, rectangularidad, cantidad de índices).
+- Validaciones runtime (out-of-bounds y out-of-memory).
+
+El hito conceptual es pasar de variables escalares en stack a **estructuras indexables en heap**, manteniendo tipado estático y generación ARM64 directa.
 
 ## Cambios respecto a la semana anterior
 
 ### Nuevas características en la gramática
 
-No hubo cambios en Grammar.g4 respecto a la semana 7. La sintaxis aceptada y la precedencia permanecen iguales.
+No hubo cambios en `Grammar.g4` para esta implementación. Se reutilizó la sintaxis ya existente para arrays.
 
-- **Sin nueva regla**
+- **Sin nueva regla (se reutiliza lo ya definido)**
 ```antlr
 stmt
-    : 'print' '(' e ')'                    
-    | 'var' ID '=' e                       
-    | ID '=' e                             
-    | 'if' '(' e ')' block else?           
-    | 'while' '(' e ')' block              
-    | 'continue'                           
-    | 'break'                              
-    | 'return' e?                          
-    | 'func' ID '(' params? ')' block      
-    | ID '(' args? ')'                     
-    | ID ('[' index+=e ']')+ '=' assign=e  
+    : 'print' '(' e ')'                    # PrintStatement
+    | 'var' ID '=' e                       # VarDeclaration
+    | ID '=' e                             # AssignmentStatement
+    | 'if' '(' e ')' block else?           # IfStatement
+    | 'while' '(' e ')' block              # WhileStatement
+    | 'continue'                           # ContinueStatement
+    | 'break'                              # BreakStatement
+    | 'return' e?                          # ReturnStatement
+    | 'func' ID '(' params? ')' block      # FunctionDeclaration
+    | ID '(' args? ')'                     # FunctionCallStatement
+    | ID ('[' index+=e ']')+ '=' assign=e  # ArrayAssignmentStatement
+    ;
+
+primary
+    : '(' e ')'                        # GroupedExpression
+    | INT                              # IntExpression
+    | ID                               # ReferenceExpression
+    | bool=('true'|'false')            # BoolExpression
+    | ID '(' args? ')'                 # FunctionCallExpression
+    | '[' e (',' e)* ']'               # ArrayExpression
+    | ID ('[' e ']')+                  # ArrayAccessExpression
     ;
 ```
-- Semánticamente, la gramática ya soportaba variables, condicionales, ciclos y control de flujo. En semana 7 solo se implementó el subconjunto aritmético + `print`; en semana 8 se implementa el backend para el resto de construcciones.
-
-- **Sin cambios en precedencia/expresiones**
-```antlr
-e    : eq ;
-eq   : left=ineq ('==' right=ineq)? ;
-ineq : left=add (op=('>'|'<') right=add)? ;
-add  : add op=('+' | '-') prod | prod ;
-prod : prod op=('*' | '/') unary | unary ;
-unary: primary | '-' unary ;
-```
-- Las expresiones de comparación (`==`, `>`, `<`) ahora generan instrucciones `cmp` + `cset` en vez de ser ignoradas.
-
-- **Sin nuevos tokens**
-```antlr
-INT : [0-9]+ ;
-ID  : [a-zA-Z_][a-zA-Z0-9_]* ;
-WS  : [ \t\r\n]+ -> skip ;
-```
-- No se incorporan categorías léxicas nuevas; los cambios son puramente en la fase de generación de código.
 
 ### Nuevas clases
 
-No se agregaron nuevas clases en semana 8. El conjunto de archivos en `src/` permanece idéntico al de semana 7.
+No se agregaron nuevas clases. Se reutilizó la estructura existente del proyecto.
 
 ### Clases modificadas
 
-#### `ARM/ASMGenerator.php`
+#### `src/Compiler.php`
 
 - Qué se agregó
-  - 5 nuevos métodos de emisión de instrucciones:
-    - `cmp($rs1, $rs2)`: emite instrucción `cmp` para comparar dos registros.
-    - `cset($rd, $cond)`: emite instrucción `cset` para establecer un registro según una condición (`eq`, `gt`, `lt`).
-    - `label($name)`: emite una etiqueta (ej. `L0:`) para ser destino de saltos.
-    - `b($label)`: emite salto incondicional a una etiqueta.
-    - `cbz($rs, $label)`: emite salto condicional (branch if zero) a una etiqueta.
-- Qué se cambió
-  - `toString()`: se agregó detección de etiquetas mediante regex (`/^[A-Za-z_]\w*:$/`) para emitirlas sin indentación, distinguiéndolas de instrucciones regulares que llevan 4 espacios de indentación.
-- Por qué fue necesario
-  - Las expresiones de comparación requieren `cmp` + `cset` para producir valores booleanos (0 o 1).
-  - Las estructuras `if`/`else` y `while` necesitan etiquetas como destinos de salto y las instrucciones `b`/`cbz` para implementar el flujo de control.
-  - Sin la detección de etiquetas en `toString()`, las etiquetas se emitirían con indentación y el ensamblador las rechazaría.
-- Cómo afecta la ejecución
-  - El ensamblador generado ahora contiene etiquetas (`L0:`, `L1:`, ...) y saltos (`b L0`, `cbz x9, L1`) que implementan el flujo de control del programa fuente.
+  - **Soporte de tipos estructurados para arrays**:
+    - Descriptor: `['kind'=>'array','elem'=>..., 'rank'=>N, 'dims'=>[...]]`.
+  - **Helpers de tipos**:
+    - `typeToString`, `typeEquals`, `isArrayType`, `makeArrayTypeWithRankAndDims`, etc.
+  - **Helpers de heap/runtime**:
+    - `emitHeapAllocFixed` para reservar memoria dinámica con verificación de límite.
+    - `emitRuntimeErrorHandlers` con labels `_panic_oob` y `_panic_oom`.
+  - **Helpers de arrays**:
+    - Análisis de literal multidimensional y validación de rectangularidad.
+    - Cálculo de dirección row-major para `rank` arbitrario.
+  - **Visitors implementados/completados**:
+    - `visitArrayExpression`
+    - `visitArrayAccessExpression`
+    - `visitArrayAssignmentStatement`
 
-#### `Compiler.php`
+- Qué se cambió
+  - `visitProgram` ahora inicializa heap:
+    - `ldr HP, =heap_base`
+    - `ldr HEAP_END, =heap_end`
+  - Se endureció validación de tipos en asignación/comparaciones para soportar arrays estructurados.
+  - `print` restringido a valores escalares (`int`/`bool`).
+
+- Por qué fue necesario
+  - Los arrays requieren almacenamiento fuera del stack de variables locales.
+  - Multiíndice exige conocer dimensiones y aplicar fórmula row-major.
+  - Sin checks runtime, accesos inválidos terminan en memoria corrupta.
+
+- Cómo afecta la ejecución
+  - El compilador emite ARM64 que reserva, indexa y escribe arrays en heap.
+  - Los errores OOB/OOM terminan la ejecución con códigos de salida controlados.
+
+#### `src/ARM/ASMGenerator.php`
 
 - Qué se agregó
-  - **4 nuevas propiedades**:
-    - `$env`: instancia de `Environment` para el ámbito léxico actual.
-    - `$stackOffset`: offset acumulado relativo al frame pointer para asignar slots de variables.
-    - `$labelCounter`: contador entero para generar etiquetas únicas (`L0`, `L1`, ...).
-    - `$loopLabels`: pila (array) de pares `["start" => ..., "end" => ...]` para resolver `break`/`continue`.
-  - **1 método helper**:
-    - `newLabel()`: retorna una etiqueta única incrementando `$labelCounter`.
-  - **10 nuevos métodos visitor**:
-    - `visitVarDeclaration`: evalúa inicializador, asigna slot de 8 bytes (offset -= 8), almacena metadatos `["type", "offset"]` en el entorno, emite `pop` + `subi SP` + `str [FP, offset]`.
-    - `visitReferenceExpression`: busca variable en el entorno (con cadena de padres), emite `ldr [FP, offset]` + `push`, retorna el tipo declarado.
-    - `visitAssignmentStatement`: evalúa expresión, valida que el tipo coincida con la declaración, emite `pop` + `str [FP, offset]`.
-    - `visitBlockStatement`: crea ámbito hijo (`new Environment($prevEnv)`), itera sentencias propagando `FlowType`, restaura ámbito y offset al salir, reclama espacio de pila con `addi SP`.
-    - `visitIfStatement`: evalúa condición (valida int/bool), emite `cbz` a etiqueta else/end, visita bloque if, opcionalmente visita else con salto incondicional entre ambos.
-    - `visitWhileStatement`: emite etiqueta de inicio, evalúa condición, `cbz` a fin, visita cuerpo, `b` de regreso al inicio, emite etiqueta de fin. Maneja la pila `$loopLabels`.
-    - `visitContinueStatement`: emite `b` a la etiqueta de inicio del ciclo actual, retorna `ContinueType()`.
-    - `visitBreakStatement`: emite `b` a la etiqueta de fin del ciclo actual, retorna `BreakType()`.
-    - `visitEqualityExpression`: evalúa ambos operandos, valida tipos iguales, emite `cmp` + `cset eq`, retorna `"bool"`.
-    - `visitInequalityExpression`: evalúa ambos operandos, valida ambos `"int"`, emite `cmp` + `cset gt/lt`, retorna `"bool"`.
-    - `visitBoolExpression`: emite `mov T0, #1` o `mov T0, #0` según `true`/`false`, push, retorna `"bool"`.
-- Qué se cambió
-  - `visitProgram`: ahora emite `mov x29, sp` al inicio para configurar el frame pointer.
-  - `visitPrintStatement`: ahora captura el tipo retornado por la expresión (mantiene la cadena de tipos).
-  - `visitAddExpression`: ahora valida que ambos operandos sean `"int"` antes de operar, retorna `"int"`.
-  - `visitProductExpression`: ahora valida que ambos operandos sean `"int"` antes de operar, retorna `"int"`.
-  - `visitUnaryExpression`: ahora valida que el operando sea `"int"`, retorna `"int"`.
-  - `visitIntExpression`: ahora retorna `"int"`.
-  - `visitGroupedExpression`: ahora propaga el tipo retornado por la expresión interna.
-  - `visitPrimaryExpression`: ahora propaga el tipo retornado.
-- Por qué fue necesario
-  - Para soportar variables se necesita un mecanismo de almacenamiento (frame pointer + offsets) y un entorno de símbolos (`Environment`).
-  - Para garantizar programas válidos se necesita verificación de tipos en tiempo de compilación.
-  - Para implementar control de flujo se necesitan etiquetas, saltos y propagación de `FlowType`.
-- Cómo afecta la ejecución
-  - El compilador ahora genera código ARM64 completo para programas con variables, condicionales y ciclos, no solo expresiones aritméticas.
+  - `bcond($cond, $label)` para emitir `b.<cond>` (ej. `b.ge`, `b.lt`, `b.hi`).
 
-#### `Environment.php` (activada)
+- Qué se cambió
+  - Sección `.bss` extendida con heap:
+    - `heap_base: .skip 1048576`
+    - `heap_end:`
+
+- Por qué fue necesario
+  - Comparaciones de rango y capacidad de heap requieren saltos condicionales más generales.
+  - El compilador necesita una región concreta de heap para reservar arrays.
+
+- Cómo afecta la ejecución
+  - El ensamblador generado ahora contiene memoria dinámica explícita para arrays.
+
+#### `src/ARM/Constants.php`
 
 - Qué se agregó
-  - No se modificó el código.
-- Qué se cambió
-  - Pasa de estar inactiva (presente pero sin uso en semana 7) a ser **eje central** del manejo de variables.
-- Por qué fue necesario
-  - Las variables necesitan un ámbito léxico con búsqueda en cadena de padres para soportar bloques anidados.
-- Cómo afecta la ejecución
-  - Cada bloque (`if`, `while`) crea un ámbito hijo. Las variables se buscan recorriendo la cadena de padres. Los metadatos almacenados (`type`, `offset`) permiten generar direccionamiento correcto y validar tipos.
+  - Alias semánticos:
+    - `HP => x20`
+    - `HEAP_END => x21`
 
-#### `FlowTypes.php` (activada)
-
-- Qué se agregó
-  - No se modificó el código.
-- Qué se cambió
-  - Pasa de estar inactiva a ser utilizada por `visitBreakStatement`, `visitContinueStatement` y `visitBlockStatement`.
 - Por qué fue necesario
-  - Las sentencias `break` y `continue` deben detener la generación de código muerto dentro de un bloque. Al retornar un `FlowType`, `visitBlockStatement` deja de iterar las sentencias restantes.
-- Cómo afecta la ejecución
-  - Evita emitir instrucciones inalcanzables después de un `break` o `continue`, produciendo código ensamblador más limpio y correcto.
+  - Documenta y estabiliza el convenio de registros para heap pointer y límite.
+
+#### `src/Environment.php` (reutilizada)
+
+- Qué se cambió
+  - No se modificó código.
+- Cómo se reutilizó
+  - Se sigue usando para guardar símbolos (`type`, `offset`), ahora con tipos de array estructurados.
 
 ### Cambios en el compilador
 
-- Nuevos métodos visitor
-  - Se introducen 10 nuevos visitors en `Compiler`:
-  - **Variables**: `visitVarDeclaration`, `visitReferenceExpression`, `visitAssignmentStatement`.
-  - **Ámbitos**: `visitBlockStatement`.
-  - **Control de flujo**: `visitIfStatement`, `visitWhileStatement`, `visitContinueStatement`, `visitBreakStatement`.
-  - **Comparaciones**: `visitEqualityExpression`, `visitInequalityExpression`.
-  - **Literales**: `visitBoolExpression`.
-- Cambios en evaluación
-  - Todos los visitors de expresión ahora retornan un **string de tipo** (`"int"` o `"bool"`) que se propaga hacia arriba por el árbol.
-  - Las expresiones de comparación (`==`, `>`, `<`) generan instrucciones `cmp` + `cset` y retornan `"bool"`.
-  - Los literales booleanos (`true`/`false`) se representan como enteros 1/0 en ARM64.
-- Manejo de flujo
-  - `if`/`else` se lowerea a secuencias `cbz` + etiquetas + salto incondicional.
-  - `while` se lowerea a un ciclo con etiqueta de inicio, `cbz` de salida, y `b` de regreso.
-  - `break` emite salto a la etiqueta de fin del ciclo y retorna `BreakType()`.
-  - `continue` emite salto a la etiqueta de inicio del ciclo y retorna `ContinueType()`.
-  - `visitBlockStatement` propaga `FlowType` para evitar código muerto después de `break`/`continue`.
-- Nuevos tipos de retorno
-  - Los visitors de expresión retornan `"int"` o `"bool"` (antes no retornaban nada).
-  - `visitBreakStatement` retorna `BreakType()`, `visitContinueStatement` retorna `ContinueType()`.
-- Cambios en el entorno
-  - El modelo de `Environment` es ahora **eje central** del compilador para manejar variables y ámbitos.
-  - Cada bloque crea un `new Environment($prevEnv)` y lo restaura al salir.
-  - El offset de pila (`$stackOffset`) se guarda y restaura junto con el entorno para reclamar espacio de variables locales.
-- Nuevas validaciones semánticas
-  - **Tipo de operandos aritméticos**: `+`, `-`, `*`, `/` requieren ambos operandos `"int"`.
-  - **Tipo de operandos de comparación**: `>`, `<` requieren ambos `"int"`; `==` requiere tipos iguales.
-  - **Tipo de operando unario**: `-` requiere operando `"int"`.
-  - **Tipo de condiciones**: `if` y `while` requieren condición `"int"` o `"bool"`.
-  - **Tipo de asignación**: el tipo de la expresión debe coincidir con el tipo declarado de la variable.
-  - **Contexto de break/continue**: se valida que estén dentro de un ciclo `while`.
-  - Todas las validaciones son en tiempo de compilación y lanzan `Exception` de PHP con mensaje descriptivo.
+- Modelo de memoria
+  - Stack: variables locales (slots con offset relativo a `FP`).
+  - Heap: arrays (bump allocator, sin `free`).
+
+- Layout de array en heap
+  - `base + 0`: `rank`
+  - `base + 8 ...`: dimensiones (`dims[0]`, `dims[1]`, ...)
+  - `base + (rank+1)*8`: datos lineales en row-major
+
+- Cálculo de offset row-major
+  - Para índices `i0..ik` y dimensiones `d0..dk`:
+  - `linear = (((i0 * d1 + i1) * d2 + i2) ... )`
+  - `addr = base + headerBytes + linear * 8`
+
+- Validaciones semánticas nuevas
+  - Literales de array no vacíos.
+  - Literales multidimensionales rectangulares (sin *jagged arrays*).
+  - Elementos homogéneos (`int` o `bool`, o base escalar consistente).
+  - Cantidad de índices debe coincidir con `rank`.
+  - Cada índice debe ser `int`.
+  - En asignación indexada, RHS debe coincidir con tipo escalar base del array.
+
+- Validaciones runtime nuevas
+  - Bounds check por dimensión (`0 <= idx < dim`).
+  - Heap overflow check antes de reservar memoria.
 
 ---
 
 ## Estructura del Proyecto
 
-- Grammar.g4
-  - Define la gramática del lenguaje (sin cambios respecto a semana 7).
-- `src/`
-  - Contiene el backend de compilación: Compiler.php, `ARM/ASMGenerator.php`, `ARM/Constants.php`, y utilidades de entorno y flujo.
+- `Grammar.g4`
+  - Gramática del lenguaje (sin cambios esta semana).
+- `src/Compiler.php`
+  - Semántica y generación ARM64 (tipos, heap, arrays, row-major).
+- `src/ARM/ASMGenerator.php`
+  - Emisión de instrucciones y secciones ASM (`.text`, `.bss`, `.rodata`).
+- `src/ARM/Constants.php`
+  - Convenciones de registros (`FP`, `SP`, temporales, `HP`, `HEAP_END`).
 - `src/Environment.php`
-  - Gestión de ámbitos léxicos con cadena de padres. Ahora activamente utilizada por el compilador.
-- `src/FlowTypes.php`
-  - Clases `FlowType`, `ContinueType`, `BreakType`, `ReturnType`. Ahora activamente utilizadas para prevenir código muerto.
+  - Tabla de símbolos por scopes encadenados.
 - `bootstrap.php`
-  - Carga clases ANTLR y archivos del compilador.
-- index.php
-  - Punto de entrada web; parsea entrada y muestra ensamblador generado.
-- `static/`
-  - Recursos de interfaz para editor y consola web.
-- `ANTLRv4/`
-  - Artefactos PHP generados por ANTLR (lexer/parser/visitor/base).
-- `vendor/`
-  - Dependencias instaladas por Composer (runtime ANTLR4/autoload).
+  - Carga runtime ANTLR + clases del compilador.
+- `index.php`
+  - Entrada web para parsear y mostrar el ensamblador generado.
+- `build.sh`
+  - Ensamblado + link + ejecución con QEMU ARM64.
 
 ---
 
@@ -199,54 +177,69 @@ No se agregaron nuevas clases en semana 8. El conjunto de archivos en `src/` per
 antlr4 -Dlanguage=PHP Grammar.g4 -visitor -o ANTLRv4/
 ```
 
-- Qué hace el comando
-  - Toma Grammar.g4 y genera el lexer/parser/visitor para **PHP** en `ANTLRv4/`.
-- Por qué `-visitor` es requerido
-  - El proyecto implementa la semántica mediante visitors (`Compiler extends GrammarBaseVisitor`).
-- Qué archivos se generan conceptualmente
-  - **Léxico**: `GrammarLexer`.
-  - **Sintáctico**: `GrammarParser`.
-  - **Recorrido semántico**: `GrammarVisitor` y `GrammarBaseVisitor`.
-  - **Metadatos**: archivos `.tokens` y `.interp`.
-
 ## Cómo ejecutar el proyecto
 
 ```bash
 php -S 0.0.0.0:8080
 ```
 
-- Qué hace
-  - Levanta el servidor embebido de PHP en el puerto `8080`.
-- Qué debe esperar el estudiante
-  - Ingresar un programa en el editor web y obtener como salida el **texto ensamblador ARM64** generado.
-  - Programas con variables, condicionales y ciclos ahora generan código con etiquetas y saltos.
-- Cómo interactúa con el compilador
-  - index.php parsea con ANTLR, invoca `Compiler->visit(tree)`, y renderiza `ASMGenerator->toString()` en la consola.
-
 ## Probar código assembly para ARM64
 
-Descargar emulador QEMU para ARM64:
+Instalar herramientas:
 
 ```bash
 sudo apt update
 sudo apt install -y binutils-aarch64-linux-gnu qemu-user gdb-multiarch build-essential
 ```
 
-Generar build con bash:
+Compilar y ejecutar `main.asm`:
 
 ```bash
 chmod +x build.sh
 ./build.sh
 ```
 
+---
+
+## Ejemplos de entrada
+
+Array 1D:
+
+```txt
+var a = [10,20,30]
+a[1] = 99
+print(a[1])
+```
+
+Array 2D (row-major):
+
+```txt
+var m = [[1,2,3],[4,5,6]]
+print(m[1][2])
+```
+
+Array 3D:
+
+```txt
+var t = [[[1,2]],[[3,4]]]
+print(t[1][0][1])
+```
+
+Errores esperados:
+
+```txt
+var m = [[1,2],[3]]      // no rectangular
+print(m[1])              // faltan índices para rank=2
+print(m[2][0])           // out of bounds (runtime)
+```
+
+---
+
 ## Conceptos aprendidos en esta semana
 
-- **Gestión de variables en compilador**: asignación de slots en la pila con offsets relativos al frame pointer (`mov x29, sp`).
-- **Ámbitos léxicos (scoping)**: creación de entornos hijo por bloque y restauración al salir, con reclamación de espacio de pila.
-- **Sistema de tipos en tiempo de compilación**: cada expresión retorna un tipo (`"int"` o `"bool"`) que se valida en operaciones y asignaciones.
-- **Lowering de condicionales**: traducción de `if`/`else` a secuencias de `cbz` (branch if zero), etiquetas y saltos incondicionales.
-- **Lowering de ciclos**: traducción de `while` a un patrón etiqueta-inicio → condición → `cbz` fin → cuerpo → `b` inicio → etiqueta-fin.
-- **Break y continue**: emisión de saltos directos a etiquetas de ciclo, con propagación de `FlowType` para evitar código muerto.
-- **Instrucciones ARM64 de comparación**: uso de `cmp` + `cset` para materializar resultados booleanos en registros.
-- **Generación de etiquetas únicas**: contador incremental para evitar colisiones entre etiquetas de distintas estructuras.
-- **Direccionamiento FP-relativo**: separación entre la pila de expresiones (SP) y el almacenamiento de variables (offsets fijos desde FP).
+- **Heap pointer en compiladores**: inicialización y avance monotónico (`bump allocation`).
+- **Representación interna de arrays**: `rank + dims + data` para acceso multiíndice.
+- **Row-major order**: linealización de índices multidimensionales.
+- **Chequeos de seguridad en runtime**: límites de índice y capacidad de heap.
+- **Reutilización de infraestructura previa**: `Environment` para metadatos sin tocar gramática.
+- **Integración incremental**: 1D estable, luego extensión multiíndice manteniendo compatibilidad.
