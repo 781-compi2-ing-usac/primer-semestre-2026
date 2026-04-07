@@ -58,9 +58,47 @@ ldr x9, [sp, #0]
 add sp, sp, #8
 sub sp, sp, #8
 str x9, [x29, #-8]
+// Cargando entero: 9
+mov x9, #9
+sub sp, sp, #8
+str x9, [sp, #0]
 ldr x10, [x29, #-8]
-// Cargando entero: 2
-mov x9, #2
+// Cargando entero: 1
+mov x9, #1
+sub sp, sp, #8
+str x9, [sp, #0]
+ldr x9, [sp, #0]
+add sp, sp, #8
+cmp x9, #0
+b.lt _panic_oob
+ldr x11, [x10, #8]
+cmp x9, x11
+b.ge _panic_oob
+mov x12, x9
+// Cargando entero: 0
+mov x9, #0
+sub sp, sp, #8
+str x9, [sp, #0]
+ldr x9, [sp, #0]
+add sp, sp, #8
+cmp x9, #0
+b.lt _panic_oob
+ldr x11, [x10, #16]
+cmp x9, x11
+b.ge _panic_oob
+ldr x11, [x10, #16]
+mul x12, x12, x11
+add x12, x12, x9
+mov x11, #8
+mul x12, x12, x11
+add x11, x10, x12
+add x11, x11, #24
+ldr x12, [sp, #0]
+add sp, sp, #8
+str x12, [x11, #0]
+ldr x10, [x29, #-8]
+// Cargando entero: 1
+mov x9, #1
 sub sp, sp, #8
 str x9, [sp, #0]
 ldr x9, [sp, #0]
