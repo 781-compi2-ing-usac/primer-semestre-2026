@@ -52,164 +52,6 @@ class Compiler extends GrammarBaseVisitor {
         return "L" . $this->labelCounter++;
     }
 
-    private function typeToString($type) {
-        if (is_string($type)) {
-            return $type;
-        }
-
-        if (!is_array($type) || !array_key_exists("kind", $type)) {
-            return "unknown";
-        }
-
-        if ($type["kind"] !== "array") {
-            return $type["kind"];
-        }
-
-        $elem = $this->typeToString($type["elem"]);
-        $rank = array_key_exists("rank", $type) ? $type["rank"] : 1;
-        $dims = array_key_exists("dims", $type) ? $type["dims"] : [];
-        $dimText = empty($dims) ? "" : " dims=" . implode("x", $dims);
-        return "array<" . $elem . "> rank=" . $rank . $dimText;
-    }
-
-    private function typeEquals($a, $b) {
-        if (is_string($a) && is_string($b)) {
-            return $a === $b;
-        }
-
-        if (!is_array($a) || !is_array($b)) {
-            return false;
-        }
-
-        if (!array_key_exists("kind", $a) || !array_key_exists("kind", $b)) {
-            return false;
-        }
-
-        if ($a["kind"] !== $b["kind"]) {
-            return false;
-        }
-
-        if ($a["kind"] !== "array") {
-            return true;
-        }
-
-        if (!array_key_exists("elem", $a) || !array_key_exists("elem", $b)) {
-            return false;
-        }
-
-        $rankA = array_key_exists("rank", $a) ? $a["rank"] : 1;
-        $rankB = array_key_exists("rank", $b) ? $b["rank"] : 1;
-        if ($rankA !== $rankB) {
-            return false;
-        }
-
-        $dimsA = array_key_exists("dims", $a) ? $a["dims"] : null;
-        $dimsB = array_key_exists("dims", $b) ? $b["dims"] : null;
-        if ($dimsA !== null && $dimsB !== null && $dimsA !== $dimsB) {
-            return false;
-        }
-
-        return $this->typeEquals($a["elem"], $b["elem"]);
-    }
-
-    private function isIntType($type) {
-        return is_string($type) && $type === "int";
-    }
-
-    private function isBoolType($type) {
-        return is_string($type) && $type === "bool";
-    }
-
-    private function isIntOrBoolType($type) {
-        return $this->isIntType($type) || $this->isBoolType($type);
-    }
-
-    private function isArrayType($type) {
-        return is_array($type)
-            && array_key_exists("kind", $type)
-            && $type["kind"] === "array"
-            && array_key_exists("elem", $type);
-    }
-
-    private function makeArrayType($elemType) {
-        return [
-            "kind" => "array",
-            "elem" => $elemType,
-            "rank" => 1,
-            "dims" => []
-        ];
-    }
-
-    private function makeArrayTypeWithRankAndDims($elemType, $rank, $dims) {
-        return [
-            "kind" => "array",
-            "elem" => $elemType,
-            "rank" => $rank,
-            "dims" => $dims
-        ];
-    }
-
-    private function normalizeExprList($list) {
-        if ($list === null) {
-            return [];
-        }
-
-        if (is_array($list)) {
-            return $list;
-        }
-
-        if ($list instanceof Traversable) {
-            return iterator_to_array($list, false);
-        }
-
-        return [$list];
-    }
-
-    private function getArrayLiteralElements(ArrayExpressionContext $ctx) {
-        if (!method_exists($ctx, "e")) {
-            return [];
-        }
-        return $this->normalizeExprList($ctx->e());
-    }
-
-    private function getArrayAccessIndexes(ArrayAccessExpressionContext $ctx) {
-        if (property_exists($ctx, "e")) {
-            return $this->normalizeExprList($ctx->e);
-        }
-
-        if (method_exists($ctx, "e")) {
-            return $this->normalizeExprList($ctx->e());
-        }
-
-        return [];
-    }
-
-    private function getArrayAssignParts(ArrayAssignmentStatementContext $ctx) {
-        $indexes = [];
-        $assignExpr = null;
-
-        if (property_exists($ctx, "index")) {
-            $indexes = $this->normalizeExprList($ctx->index);
-        }
-
-        if (property_exists($ctx, "assign")) {
-            $assignExpr = $ctx->assign;
-        }
-
-        if (empty($indexes) || $assignExpr === null) {
-            $allExprs = [];
-            if (method_exists($ctx, "e")) {
-                $allExprs = $this->normalizeExprList($ctx->e());
-            }
-            if (count($allExprs) > 0) {
-                $assignExpr = $allExprs[count($allExprs) - 1];
-                $indexes = array_slice($allExprs, 0, count($allExprs) - 1);
-            }
-        }
-
-        return ["indexes" => $indexes, "assign" => $assignExpr];
-    }
-
     private function emitHeapAllocFixed($bytes, $resultReg) {
         $this->code->comment("Heap alloc de " . $bytes . " bytes");
         $this->code->mov($resultReg, $this->r["HP"]);
@@ -240,124 +82,6 @@ class Compiler extends GrammarBaseVisitor {
         $this->code->addi($addrReg, $addrReg, 16);
     }
 
-    private function isArrayLiteralNode($node) {
-        return $node instanceof ArrayExpressionContext;
-    }
-
-    private function getArrayLiteralContext($node) {
-        if ($node instanceof ArrayExpressionContext) {
-            return $node;
-        }
-
-        if (!is_object($node) || !method_exists($node, "getChildCount") || !method_exists($node, "getChild")) {
-            return null;
-        }
-
-        $count = $node->getChildCount();
-        for ($i = 0; $i < $count; $i++) {
-            $child = $node->getChild($i);
-            $found = $this->getArrayLiteralContext($child);
-            if ($found !== null) {
-                return $found;
-            }
-        }
-
-        return null;
-    }
-
-    private function concatLists($lists) {
-        $out = [];
-        foreach ($lists as $list) {
-            foreach ($list as $item) {
-                $out[] = $item;
-            }
-        }
-        return $out;
-    }
-
-    private function analyzeArrayLiteralNode($expr) {
-        $arrayCtx = $this->getArrayLiteralContext($expr);
-
-        if ($arrayCtx === null) {
-            $type = $this->visit($expr);
-            if (!$this->isIntOrBoolType($type)) {
-                throw new Exception("En esta etapa, los arrays solo admiten escalares int o bool; se obtuvo " . $this->typeToString($type));
-            }
-            return [
-                "scalarType" => $type,
-                "dims" => [],
-                "exprs" => [$expr]
-            ];
-        }
-
-        $elements = $this->getArrayLiteralElements($arrayCtx);
-        if (count($elements) === 0) {
-            throw new Exception("No se permiten arrays vacíos en esta etapa");
-        }
-
-        $allArrays = true;
-        $allScalars = true;
-        foreach ($elements as $el) {
-            $isArray = $this->getArrayLiteralContext($el) !== null;
-            if ($isArray) {
-                $allScalars = false;
-            } else {
-                $allArrays = false;
-            }
-        }
-
-        if (!$allArrays && !$allScalars) {
-            throw new Exception("Array multidimensional debe ser rectangular y no mezclar escalares con sub-arrays");
-        }
-
-        if ($allScalars) {
-            $scalarType = null;
-            foreach ($elements as $el) {
-                $currentType = $this->visit($el);
-                if ($scalarType === null) {
-                    $scalarType = $currentType;
-                    continue;
-                }
-
-                if (!$this->typeEquals($scalarType, $currentType)) {
-                    throw new Exception("Array literal requiere elementos homogéneos, se obtuvo " . $this->typeToString($scalarType) . " y " . $this->typeToString($currentType));
-                }
-            }
-
-            if (!$this->isIntOrBoolType($scalarType)) {
-                throw new Exception("En esta etapa, los arrays solo admiten escalares int o bool; se obtuvo " . $this->typeToString($scalarType));
-            }
-
-            return [
-                "scalarType" => $scalarType,
-                "dims" => [count($elements)],
-                "exprs" => $elements
-            ];
-        }
-
-        $childInfos = [];
-        foreach ($elements as $el) {
-            $childInfos[] = $this->analyzeArrayLiteralNode($el);
-        }
-
-        $firstType = $childInfos[0]["scalarType"];
-        $firstDims = $childInfos[0]["dims"];
-        foreach ($childInfos as $info) {
-            if (!$this->typeEquals($firstType, $info["scalarType"])) {
-                throw new Exception("Sub-arrays deben tener el mismo tipo escalar base");
-            }
-            if ($firstDims !== $info["dims"]) {
-                throw new Exception("Array multidimensional debe ser rectangular (sub-arrays con mismas dimensiones)");
-            }
-        }
-
-        return [
-            "scalarType" => $firstType,
-            "dims" => array_merge([count($elements)], $firstDims),
-            "exprs" => $this->concatLists(array_map(function($x) { return $x["exprs"]; }, $childInfos))
-        ];
-    }
-
     private function emitRowMajorAddrFromIndexes($baseReg, $indexes, $rank, $addrReg) {
         if (count($indexes) !== $rank) {
             throw new Exception("Se esperaban " . $rank . " índices para acceso row-major, se recibieron " . count($indexes));
@@ -365,8 +89,8 @@ class Compiler extends GrammarBaseVisitor {
 
         foreach ($indexes as $dim => $indexExpr) {
             $indexType = $this->visit($indexExpr);
-            if (!$this->isIntType($indexType)) {
-                throw new Exception("El índice de array debe ser int, se obtuvo " . $this->typeToString($indexType));
+            if (!CompilerSupport::isIntType($indexType)) {
+                throw new Exception("El índice de array debe ser int, se obtuvo " . CompilerSupport::typeToString($indexType));
             }
 
             $this->code->pop($this->r["T0"]);
@@ -419,8 +143,8 @@ class Compiler extends GrammarBaseVisitor {
 
     public function visitPrintStatement(PrintStatementContext $ctx) {        
         $type = $this->visit($ctx->e());
-        if (!$this->isIntOrBoolType($type)) {
-            throw new Exception("print solo admite int o bool, se obtuvo " . $this->typeToString($type));
+        if (!CompilerSupport::isIntOrBoolType($type)) {
+            throw new Exception("print solo admite int o bool, se obtuvo " . CompilerSupport::typeToString($type));
         }
         $this->code->comment("Imprimiendo el resultado de la expresión");
         $this->code->comment("Cargando el valor a imprimir en A0");
@@ -445,7 +169,7 @@ class Compiler extends GrammarBaseVisitor {
         ]);
 
         // 4. Pop de la expresión, reservar espacio en el stack, almacenar el valor de la expresión 
-        $this->code->comment("Declaración de variable: " . $varName . " (" . $this->typeToString($type) . ") en [FP, #" . $offset . "]");
+        $this->code->comment("Declaración de variable: " . $varName . " (" . CompilerSupport::typeToString($type) . ") en [FP, #" . $offset . "]");
         $this->code->pop($this->r["T0"]);
         $this->code->subi($this->r["SP"], $this->r["SP"], 8);
         $this->code->str($this->r["T0"], $this->r["FP"], $offset);
@@ -462,8 +186,8 @@ class Compiler extends GrammarBaseVisitor {
         $offset = $symbol["offset"];
 
         // 3. Chequeo de tipos: el tipo de la expresión debe ser compatible con el tipo de la variable
-        if (!$this->typeEquals($exprType, $symbol["type"])) {
-            throw new Exception("No se puede asignar tipo " . $this->typeToString($exprType) . " a variable '" . $varName . "' de tipo " . $this->typeToString($symbol["type"]));
+        if (!CompilerSupport::typeEquals($exprType, $symbol["type"])) {
+            throw new Exception("No se puede asignar tipo " . CompilerSupport::typeToString($exprType) . " a variable '" . $varName . "' de tipo " . CompilerSupport::typeToString($symbol["type"]));
         }
 
         // 4. Pop del resultado de la expresión, almacenar el valor en el stack en la posición correspondiente a la variable
@@ -476,8 +200,8 @@ class Compiler extends GrammarBaseVisitor {
         // 1. Evaluar condición y verificar que sea de tipo int o bool
         $condType = $this->visit($ctx->e());
 
-        if (!$this->isIntOrBoolType($condType)) {
-            throw new Exception("La condición del 'if' debe ser de tipo int o bool, se obtuvo " . $this->typeToString($condType));
+        if (!CompilerSupport::isIntOrBoolType($condType)) {
+            throw new Exception("La condición del 'if' debe ser de tipo int o bool, se obtuvo " . CompilerSupport::typeToString($condType));
         }
 
         // 2. Pop de la condición a un registro temporal (e.g. T0)
@@ -535,8 +259,8 @@ class Compiler extends GrammarBaseVisitor {
         // 2. Evaluar condición
         $condType = $this->visit($ctx->e());
 
-        if (!$this->isIntOrBoolType($condType)) {
-            throw new Exception("La condición del 'while' debe ser de tipo int o bool, se obtuvo " . $this->typeToString($condType));
+        if (!CompilerSupport::isIntOrBoolType($condType)) {
+            throw new Exception("La condición del 'while' debe ser de tipo int o bool, se obtuvo " . CompilerSupport::typeToString($condType));
         }
 
         // 3. Pop de la condición a un registro temporal (e.g. T0), si es falso saltar al final del ciclo
@@ -617,8 +341,8 @@ class Compiler extends GrammarBaseVisitor {
         if ($ctx->right !== null) {
             $rightType = $this->visit($ctx->right);
 
-            if (!$this->typeEquals($leftType, $rightType)) {
-                throw new Exception("Operador '==' requiere operandos del mismo tipo, se obtuvo " . $this->typeToString($leftType) . " y " . $this->typeToString($rightType));
+            if (!CompilerSupport::typeEquals($leftType, $rightType)) {
+                throw new Exception("Operador '==' requiere operandos del mismo tipo, se obtuvo " . CompilerSupport::typeToString($leftType) . " y " . CompilerSupport::typeToString($rightType));
             }
 
             $this->code->comment("Visitando expresión de igualdad: ==");
@@ -641,8 +365,8 @@ class Compiler extends GrammarBaseVisitor {
             $rightType = $this->visit($ctx->right);
             $op = $ctx->op->getText();
 
-            if (!$this->isIntType($leftType) || !$this->isIntType($rightType)) {
-                throw new Exception("Operador '" . $op . "' requiere operandos de tipo int, se obtuvo " . $this->typeToString($leftType) . " y " . $this->typeToString($rightType));
+            if (!CompilerSupport::isIntType($leftType) || !CompilerSupport::isIntType($rightType)) {
+                throw new Exception("Operador '" . $op . "' requiere operandos de tipo int, se obtuvo " . CompilerSupport::typeToString($leftType) . " y " . CompilerSupport::typeToString($rightType));
             }
 
             $this->code->comment("Visitando expresión de desigualdad: " . $op);
@@ -665,8 +389,8 @@ class Compiler extends GrammarBaseVisitor {
             $rightType = $this->visit($ctx->prod());
             $op = $ctx->op->getText();
 
-            if (!$this->isIntType($leftType) || !$this->isIntType($rightType)) {
-                throw new Exception("Operador '" . $op . "' requiere operandos de tipo int, se obtuvo " . $this->typeToString($leftType) . " y " . $this->typeToString($rightType));
+            if (!CompilerSupport::isIntType($leftType) || !CompilerSupport::isIntType($rightType)) {
+                throw new Exception("Operador '" . $op . "' requiere operandos de tipo int, se obtuvo " . CompilerSupport::typeToString($leftType) . " y " . CompilerSupport::typeToString($rightType));
             }
 
             $this->code->comment("Visitando expresión de suma/resta: " . $op);
@@ -701,8 +425,8 @@ class Compiler extends GrammarBaseVisitor {
             $rightType = $this->visit($ctx->unary());
             $op = $ctx->op->getText();
 
-            if (!$this->isIntType($leftType) || !$this->isIntType($rightType)) {
-                throw new Exception("Operador '" . $op . "' requiere operandos de tipo int, se obtuvo " . $this->typeToString($leftType) . " y " . $this->typeToString($rightType));
+            if (!CompilerSupport::isIntType($leftType) || !CompilerSupport::isIntType($rightType)) {
+                throw new Exception("Operador '" . $op . "' requiere operandos de tipo int, se obtuvo " . CompilerSupport::typeToString($leftType) . " y " . CompilerSupport::typeToString($rightType));
             }
 
             $this->code->comment("Visitando expresión de producto: " . $op);
@@ -739,8 +463,8 @@ class Compiler extends GrammarBaseVisitor {
         $this->code->comment("Visitando expresión unaria"); 
         $type = $this->visit($ctx->unary());
 
-        if (!$this->isIntType($type)) {
-            throw new Exception("Operador '-' (unario) requiere operando de tipo int, se obtuvo " . $this->typeToString($type));
+        if (!CompilerSupport::isIntType($type)) {
+            throw new Exception("Operador '-' (unario) requiere operando de tipo int, se obtuvo " . CompilerSupport::typeToString($type));
         }
 
         $this->code->comment("Cargando el valor en T0");    
@@ -775,7 +499,9 @@ class Compiler extends GrammarBaseVisitor {
     }
 
     public function visitArrayExpression(ArrayExpressionContext $ctx) {
-        $analysis = $this->analyzeArrayLiteralNode($ctx);
+        $analysis = CompilerSupport::analyzeArrayLiteralNode($ctx, function($node) {
+            return $this->visit($node);
+        });
         $elemType = $analysis["scalarType"];
         $dims = $analysis["dims"];
         $rank = count($dims);
@@ -804,20 +530,20 @@ class Compiler extends GrammarBaseVisitor {
         }
 
         $this->code->push($this->r["T4"]);
-        return $this->makeArrayTypeWithRankAndDims($elemType, $rank, $dims);
+        return CompilerSupport::makeArrayTypeWithRankAndDims($elemType, $rank, $dims);
     }
 
     public function visitArrayAccessExpression(ArrayAccessExpressionContext $ctx) {
         $varName = $ctx->ID()->getText();
         $symbol = $this->env->get($varName);
-        $indexes = $this->getArrayAccessIndexes($ctx);
+        $indexes = CompilerSupport::getArrayAccessIndexes($ctx);
 
         if (count($indexes) === 0) {
             throw new Exception("Acceso a array sin índices");
         }
 
         $currentType = $symbol["type"];
-        if (!$this->isArrayType($currentType)) {
+        if (!CompilerSupport::isArrayType($currentType)) {
             throw new Exception("Se intentó indexar un valor no-array en '" . $varName . "'");
         }
 
@@ -836,7 +562,7 @@ class Compiler extends GrammarBaseVisitor {
     public function visitArrayAssignmentStatement(ArrayAssignmentStatementContext $ctx) {
         $varName = $ctx->ID()->getText();
         $symbol = $this->env->get($varName);
-        $parts = $this->getArrayAssignParts($ctx);
+        $parts = CompilerSupport::getArrayAssignParts($ctx);
         $indexes = $parts["indexes"];
         $assignExpr = $parts["assign"];
 
@@ -846,7 +572,7 @@ class Compiler extends GrammarBaseVisitor {
 
         $assignType = $this->visit($assignExpr);
         $currentType = $symbol["type"];
-        if (!$this->isArrayType($currentType)) {
+        if (!CompilerSupport::isArrayType($currentType)) {
             throw new Exception("Se intentó indexar un valor no-array en '" . $varName . "'");
         }
 
@@ -858,8 +584,8 @@ class Compiler extends GrammarBaseVisitor {
         $this->code->ldr($this->r["T1"], $this->r["FP"], $symbol["offset"]);
 
         $expectedType = $currentType["elem"];
-        if (!$this->typeEquals($assignType, $expectedType)) {
-            throw new Exception("Tipo incompatible en asignación de array, se esperaba " . $this->typeToString($expectedType) . " y se obtuvo " . $this->typeToString($assignType));
+        if (!CompilerSupport::typeEquals($assignType, $expectedType)) {
+            throw new Exception("Tipo incompatible en asignación de array, se esperaba " . CompilerSupport::typeToString($expectedType) . " y se obtuvo " . CompilerSupport::typeToString($assignType));
         }
 
         $this->emitRowMajorAddrFromIndexes($this->r["T1"], $indexes, $rank, $this->r["T2"]);

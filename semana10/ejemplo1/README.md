@@ -48,7 +48,11 @@ primary
 
 ### Nuevas clases
 
-No se agregaron nuevas clases. Se reutilizó la estructura existente del proyecto.
+Se agregó una clase de apoyo para mantener `Compiler.php` enfocado únicamente en compilación:
+
+- `src/CompilerSupport.php`
+  - Centraliza helpers de tipos y de lectura de contextos ANTLR para arrays.
+  - Encapsula validaciones y utilidades reutilizables (`typeEquals`, `typeToString`, extracción de índices/partes de asignación, análisis de literales multidimensionales).
 
 ### Clases modificadas
 
@@ -71,6 +75,7 @@ No se agregaron nuevas clases. Se reutilizó la estructura existente del proyect
     - `visitArrayAssignmentStatement`
 
 - Qué se cambió
+  - Se refactorizó para delegar lógica auxiliar a `CompilerSupport` y reducir mezcla de responsabilidades.
   - `visitProgram` ahora inicializa heap:
     - `ldr HP, =heap_base`
     - `ldr HEAP_END, =heap_end`
@@ -119,6 +124,11 @@ No se agregaron nuevas clases. Se reutilizó la estructura existente del proyect
   - No se modificó código.
 - Cómo se reutilizó
   - Se sigue usando para guardar símbolos (`type`, `offset`), ahora con tipos de array estructurados.
+
+#### `bootstrap.php`
+
+- Qué se cambió
+  - Se agregó la carga de `src/CompilerSupport.php` para que el compilador pueda usar las utilidades externas.
 
 ### Cambios en el compilador
 
