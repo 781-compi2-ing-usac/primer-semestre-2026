@@ -24,10 +24,10 @@ El repositorio está dividido en varias carpetas cada una correspondiente a una 
 ## Compilador
 
 - `semana7`: Inicio de la implementación del compilador. Comenzamos con la generación de código assembler para expresiones y el operador `print`. Este es el punto de transición entre interpretación y compilación.
-- `semana8`: 
-- `semana9`: 
-- `semana10`: 
-- `semana11`: 
+- `semana8`: Consolidación del compilador base. Se agregan variables, asignaciones, scopes con `Environment`, verificación de tipos (`int`/`bool`) y estructuras de control (`if`, `while`, `break`, `continue`) con lowering a etiquetas y saltos ARM64.
+- `semana9`: Refactor y extensiones del backend. Se trabaja una versión modular con traits para expresiones aritméticas/booleanas y utilidades de compilación, además de material de apoyo sobre representación intermedia (C3D), heap/stack y su traducción a AArch64.
+- `semana10`: Soporte de memoria dinámica para arreglos. Se implementa `heap pointer`, reserva por bump allocator, arrays con header `rank + dims + data`, acceso y asignación multiíndice en `row-major`, y validaciones semánticas/runtime (`OOB`/`OOM`).
+- `semana11`: Pendiente de actualización.
 
 ## Contribuciones
 Si deseas contribuir al repositorio puedes hacer uso de GitHub Flow y pronto se estará aprobando tu pull request. De igual manera puedes agregar la pregunta al foro respectivo de tu sección, nos ayudaría mucho.
