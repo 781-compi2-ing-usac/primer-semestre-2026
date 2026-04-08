@@ -86,7 +86,7 @@ func promedioCapas(cubo [2][2][2]int32) [2][2]float32 {
 			for j := 0; j < 2; j++ {
 				suma += cubo[k][i][j]
 			}
-			salida[k][i] = float32(suma) / 2.0
+			salida[k][i] = suma / 2.0
 		}
 	}
 	return salida
