@@ -91,8 +91,8 @@ func main() {
 	// 4.5 typeOf()
 	// ==========================================
 	fmt.Println("\n--- 4.5 TYPEOF ---")
-	fmt.Println("int32:", typeOf(int32(42)))
-	fmt.Println("float32:", typeOf(float32(3.14)))
+	fmt.Println("int32:", typeOf(42))
+	fmt.Println("float32:", typeOf(3.14))
 	fmt.Println("bool:", typeOf(true))
 	fmt.Println("string:", typeOf("texto"))
 
