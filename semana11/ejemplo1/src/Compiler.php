@@ -1,165 +1,115 @@
-<?php 
+<?php
 
-use Context\ProgramContext;
-use Context\PrintStatementContext;
-use Context\VarDeclarationContext;
-use Context\AssignmentStatementContext;
-use Context\IfStatementContext;
-use Context\WhileStatementContext;
-use Context\ContinueStatementContext;
-use Context\BreakStatementContext;
-use Context\ReturnStatementContext;
-use Context\FunctionDeclarationContext;
-use Context\FunctionCallStatementContext;
-use Context\ArrayAssignmentStatementContext;
-use Context\BlockStatementContext;
-use Context\EqualityExpressionContext;
-use Context\InequalityExpressionContext;
 use Context\AddExpressionContext;
-use Context\ProductExpressionContext;
-use Context\PrimaryExpressionContext;
-use Context\UnaryExpressionContext;
-use Context\GroupedExpressionContext;
-use Context\IntExpressionContext;
-use Context\ReferenceExpressionContext;
-use Context\BoolExpressionContext;
-use Context\FunctionCallExpressionContext;
-use Context\ArrayExpressionContext;
-use Context\ArrayAccessExpressionContext;
-use Context\ParameterListContext;
+use Context\AssignmentStatementContext;
 use Context\ArgumentListContext;
-
-
+use Context\ArrayAccessExpressionContext;
+use Context\ArrayAssignmentStatementContext;
+use Context\ArrayExpressionContext;
+use Context\ArrayReferenceExpressionContext;
+use Context\BlockStatementContext;
+use Context\BoolExpressionContext;
+use Context\BreakStatementContext;
+use Context\ContinueStatementContext;
+use Context\ElseContext;
+use Context\EContext;
+use Context\EqualityExpressionContext;
+use Context\ExpressionListContext;
+use Context\FunctionCallExpressionContext;
+use Context\FunctionCallStatementContext;
+use Context\FunctionDeclarationContext;
+use Context\GroupedExpressionContext;
+use Context\IfStatementContext;
+use Context\InequalityExpressionContext;
+use Context\InitArrayReferenceExpressionContext;
+use Context\InitExpressionListContext;
+use Context\IntExpressionContext;
+use Context\ParameterListContext;
+use Context\PrimaryExpressionContext;
+use Context\PrintStatementContext;
+use Context\ProductExpressionContext;
+use Context\ProgramContext;
+use Context\ReferenceExpressionContext;
+use Context\ReturnStatementContext;
+use Context\TransformRowMajorContext;
+use Context\UnaryExpressionContext;
+use Context\VarDeclarationContext;
+use Context\WhileStatementContext;
 
 class Compiler extends GrammarBaseVisitor {
-    public $code;     
+    public $code;
     public $r;
     public $env;
     public $stackOffset;
     public $labelCounter;
     public $loopLabels;
+    public $collectArrayLiteral;
 
     public function __construct() {
-        $this->code = new ASMGenerator();                
+        $this->code = new ASMGenerator();
         $this->r = include __DIR__ . "/ARM/Constants.php";
         $this->env = new Environment();
         $this->stackOffset = 0;
         $this->labelCounter = 0;
         $this->loopLabels = [];
+        $this->collectArrayLiteral = false;
     }
 
     public function newLabel() {
         return "L" . $this->labelCounter++;
     }
 
-    private function emitHeapAllocFixed($bytes, $resultReg) {
-        $this->code->comment("Heap alloc de " . $bytes . " bytes");
-        $this->code->mov($resultReg, $this->r["HP"]);
-        $this->code->li($this->r["T0"], $bytes);
-        $this->code->add($this->r["T1"], $this->r["HP"], $this->r["T0"]);
-        $this->code->cmp($this->r["T1"], $this->r["HEAP_END"]);
-        $this->code->bcond("hi", "_panic_oom");
-        $this->code->mov($this->r["HP"], $this->r["T1"]);
-    }    
-
-    private function emitBoundsCheckAtDim($baseReg, $idxReg, $dimIndex) {
-        $dimOffset = 8 + ($dimIndex * 8);
-        $this->code->cmp($idxReg, "#0");
-        $this->code->bcond("lt", "_panic_oob");
-        $this->code->ldr($this->r["T2"], $baseReg, $dimOffset);
-        $this->code->cmp($idxReg, $this->r["T2"]);
-        $this->code->bcond("ge", "_panic_oob");
-    }
-
-    private function emitRowMajorAddrFromIndexes($baseReg, $indexes, $rank, $addrReg) {
-        if (count($indexes) !== $rank) {
-            throw new Exception("Se esperaban " . $rank . " índices para acceso row-major, se recibieron " . count($indexes));
-        }
-
-        $this->code->comment("Row Major!!");
-        foreach ($indexes as $dim => $indexExpr) {
-            $indexType = $this->visit($indexExpr);
-            if (!CompilerSupport::isIntType($indexType)) {
-                throw new Exception("El índice de array debe ser int, se obtuvo " . CompilerSupport::typeToString($indexType));
-            }
-
-            $this->code->pop($this->r["T0"]);
-            $this->emitBoundsCheckAtDim($baseReg, $this->r["T0"], $dim);
-
-            if ($dim === 0) {
-                $this->code->mov($this->r["T3"], $this->r["T0"]);
-                continue;
-            }
-
-            $dimOffset = 8 + ($dim * 8);
-            $this->code->ldr($this->r["T2"], $baseReg, $dimOffset);
-            $this->code->mul($this->r["T3"], $this->r["T3"], $this->r["T2"]);
-            $this->code->add($this->r["T3"], $this->r["T3"], $this->r["T0"]);
-        }
-
-        $headerBytes = ($rank + 1) * 8;
-        $this->code->li($this->r["T2"], 8);
-        $this->code->mul($this->r["T3"], $this->r["T3"], $this->r["T2"]);
-        $this->code->add($addrReg, $baseReg, $this->r["T3"]);
-        $this->code->addi($addrReg, $addrReg, $headerBytes);
-    }
-
-    private function emitRuntimeErrorHandlers() {
-        $this->code->label("_panic_oob");
-        $this->code->li($this->r["A0"], 2);
-        $this->code->li($this->r["SYS"], 93);
-        $this->code->syscall();
-
-        $this->code->label("_panic_oom");
-        $this->code->li($this->r["A0"], 1);
-        $this->code->li($this->r["SYS"], 93);
-        $this->code->syscall();
+    private function fail($message) {
+        throw CompilerError::semantic($message);
     }
 
     public function visitProgram(ProgramContext $ctx) {
         $this->code->comment("Configurando el frame pointer");
         $this->code->mov($this->r["FP"], $this->r["SP"]);
-        $this->code->comment("Inicializando heap pointer y límite de heap");
+        $this->code->comment("Inicializando heap pointer y limite de heap");
         $this->code->ldrl($this->r["HP"], "heap_base");
         $this->code->ldrl($this->r["HEAP_END"], "heap_end");
-                   
-        foreach ($ctx->stmt() as $stmt) {            
+
+        foreach ($ctx->stmt() as $stmt) {
             $this->visit($stmt);
         }
-        $this->code->endProgram();
-        $this->emitRuntimeErrorHandlers();
-        return $this->code;
-    }    
 
-    public function visitPrintStatement(PrintStatementContext $ctx) {        
+        $this->code->endProgram();
+        $this->code->emitRuntimeErrorHandlers(
+            CompilerError::PANIC_OOB_LABEL,
+            CompilerError::PANIC_OOB_EXIT_CODE,
+            CompilerError::PANIC_OOM_LABEL,
+            CompilerError::PANIC_OOM_EXIT_CODE,
+            $this->r["A0"],
+            $this->r["SYS"]
+        );
+        return $this->code;
+    }
+
+    public function visitPrintStatement(PrintStatementContext $ctx) {
         $type = $this->visit($ctx->e());
-        if (!CompilerSupport::isIntOrBoolType($type)) {
-            throw new Exception("print solo admite int o bool, se obtuvo " . CompilerSupport::typeToString($type));
+        if (!TypeChecker::isIntOrBoolType($type)) {
+            $this->fail("print solo admite int o bool, se obtuvo " . TypeChecker::typeToString($type));
         }
-        $this->code->comment("Imprimiendo el resultado de la expresión");
-        $this->code->comment("Cargando el valor a imprimir en A0");
-        $this->code->pop($this->r["A0"]);        
+
+        $this->code->comment("Imprimiendo el resultado de la expresion");
+        $this->code->pop($this->r["A0"]);
         $this->code->printInt($this->r["A0"]);
     }
 
     public function visitVarDeclaration(VarDeclarationContext $ctx) {
         $varName = $ctx->ID()->getText();
-
-        // 1. Evaluar inicialización para obtener el tipo de la variable
         $type = $this->visit($ctx->e());
 
-        // 2. Asignar espacio en el stack para la nueva variable 
         $this->stackOffset -= 8;
         $offset = $this->stackOffset;
 
-        // 3. Guardar meta-data en el entorno (type, offset)
         $this->env->set($varName, [
             "type" => $type,
             "offset" => $offset
         ]);
 
-        // 4. Pop de la expresión, reservar espacio en el stack, almacenar el valor de la expresión 
-        $this->code->comment("Declaración de variable: " . $varName . " (" . CompilerSupport::typeToString($type) . ") en [FP, #" . $offset . "]");
+        $this->code->comment("Declaracion de variable: " . $varName . " (" . TypeChecker::typeToString($type) . ") en [FP, #" . $offset . "]");
         $this->code->pop($this->r["T0"]);
         $this->code->subi($this->r["SP"], $this->r["SP"], 8);
         $this->code->str($this->r["T0"], $this->r["FP"], $offset);
@@ -167,131 +117,150 @@ class Compiler extends GrammarBaseVisitor {
 
     public function visitAssignmentStatement(AssignmentStatementContext $ctx) {
         $varName = $ctx->ID()->getText();
-
-        // 1. Evaluar expresión para obtener su tipo
         $exprType = $this->visit($ctx->e());
 
-        // 2. Resolver variable en el entorno para obtener su tipo y offset
         $symbol = $this->env->get($varName);
         $offset = $symbol["offset"];
 
-        // 3. Chequeo de tipos: el tipo de la expresión debe ser compatible con el tipo de la variable
-        if (!CompilerSupport::typeEquals($exprType, $symbol["type"])) {
-            throw new Exception("No se puede asignar tipo " . CompilerSupport::typeToString($exprType) . " a variable '" . $varName . "' de tipo " . CompilerSupport::typeToString($symbol["type"]));
+        if (!TypeChecker::typeEquals($exprType, $symbol["type"])) {
+            $this->fail("No se puede asignar tipo " . TypeChecker::typeToString($exprType) . " a variable '" . $varName . "' de tipo " . TypeChecker::typeToString($symbol["type"]));
         }
 
-        // 4. Pop del resultado de la expresión, almacenar el valor en el stack en la posición correspondiente a la variable
-        $this->code->comment("Asignación a variable: " . $varName . " en [FP, #" . $offset . "]");
+        $this->code->comment("Asignacion a variable: " . $varName . " en [FP, #" . $offset . "]");
         $this->code->pop($this->r["T0"]);
         $this->code->str($this->r["T0"], $this->r["FP"], $offset);
     }
 
     public function visitIfStatement(IfStatementContext $ctx) {
-        // 1. Evaluar condición y verificar que sea de tipo int o bool
         $condType = $this->visit($ctx->e());
-
-        if (!CompilerSupport::isIntOrBoolType($condType)) {
-            throw new Exception("La condición del 'if' debe ser de tipo int o bool, se obtuvo " . CompilerSupport::typeToString($condType));
+        if (!TypeChecker::isIntOrBoolType($condType)) {
+            $this->fail("La condicion del 'if' debe ser de tipo int o bool, se obtuvo " . TypeChecker::typeToString($condType));
         }
 
-        // 2. Pop de la condición a un registro temporal (e.g. T0)
-        $this->code->comment("Evaluando condición del if");
+        $this->code->comment("Evaluando condicion del if");
         $this->code->pop($this->r["T0"]);
 
-        $hasElse = ($ctx->else() !== null);
-
-        if ($hasElse) {
+        if ($ctx->else() !== null) {
             $elseLabel = $this->newLabel();
             $endLabel = $this->newLabel();
 
-            // 3. Si es falso salta a else
             $this->code->cbz($this->r["T0"], $elseLabel);
-
-            // 4. Visitar el cuerpo del If
-            $this->code->comment("Cuerpo del if");
             $this->visit($ctx->block());
-
-            // 5. Saltar el else
             $this->code->b($endLabel);
-
-            // 6. Cuerpo del else
             $this->code->label($elseLabel);
-            $this->code->comment("Cuerpo del else");
             $this->visit($ctx->else());
-
-            // 7. Final
             $this->code->label($endLabel);
-        } else {
-            $endLabel = $this->newLabel();
-
-            // 3. Si es falso salto al final
-            $this->code->cbz($this->r["T0"], $endLabel);
-
-            // 4. Visitar el cuerpo del If
-            $this->code->comment("Cuerpo del if");
-            $this->visit($ctx->block());
-
-            // 5. Final
-            $this->code->label($endLabel);
+            return;
         }
+
+        $endLabel = $this->newLabel();
+        $this->code->cbz($this->r["T0"], $endLabel);
+        $this->visit($ctx->block());
+        $this->code->label($endLabel);
     }
 
     public function visitWhileStatement(WhileStatementContext $ctx) {
         $startLabel = $this->newLabel();
         $endLabel = $this->newLabel();
-
-        // Pushear los labels del ciclo actual para soportar break/continue
         $this->loopLabels[] = ["start" => $startLabel, "end" => $endLabel];
 
-        // 1. Etiquetar el inicio del ciclo
         $this->code->label($startLabel);
 
-        // 2. Evaluar condición
         $condType = $this->visit($ctx->e());
-
-        if (!CompilerSupport::isIntOrBoolType($condType)) {
-            throw new Exception("La condición del 'while' debe ser de tipo int o bool, se obtuvo " . CompilerSupport::typeToString($condType));
+        if (!TypeChecker::isIntOrBoolType($condType)) {
+            $this->fail("La condicion del 'while' debe ser de tipo int o bool, se obtuvo " . TypeChecker::typeToString($condType));
         }
 
-        // 3. Pop de la condición a un registro temporal (e.g. T0), si es falso saltar al final del ciclo
-        $this->code->comment("Evaluando condición del while");
         $this->code->pop($this->r["T0"]);
         $this->code->cbz($this->r["T0"], $endLabel);
+        $flow = $this->visit($ctx->block());
+        if ($flow instanceof ReturnType) {
+            array_pop($this->loopLabels);
+            return $flow;
+        }
 
-        // 4. Visitar el cuerpo del while
-        $this->code->comment("Cuerpo del while");
-        $this->visit($ctx->block());
-
-        // 5. Saltar a la condición
         $this->code->b($startLabel);
-
-        // 6. Etiqueta final
         $this->code->label($endLabel);
-
-        // Pop de los labels del ciclo actual
         array_pop($this->loopLabels);
+        return null;
     }
 
     public function visitContinueStatement(ContinueStatementContext $ctx) {
         if (empty($this->loopLabels)) {
-            throw new Exception("'continue' fuera de un ciclo while");
+            $this->fail("'continue' fuera de un ciclo while");
         }
 
         $loop = end($this->loopLabels);
-        $this->code->comment("Continue: saltar al inicio del while");
         $this->code->b($loop["start"]);
         return new ContinueType();
     }
 
     public function visitBreakStatement(BreakStatementContext $ctx) {
         if (empty($this->loopLabels)) {
-            throw new Exception("'break' fuera de un ciclo while");
+            $this->fail("'break' fuera de un ciclo while");
         }
 
         $loop = end($this->loopLabels);
-        $this->code->comment("Break: saltar al final del while");
         $this->code->b($loop["end"]);
         return new BreakType();
+    }
+
+    public function visitReturnStatement(ReturnStatementContext $ctx) {
+        $this->fail("'return' aun no esta soportado en la generacion actual");
+    }
+
+    public function visitFunctionDeclaration(FunctionDeclarationContext $ctx) {
+        $this->fail("'func' aun no esta soportado en la generacion actual");
+    }
+
+    public function visitFunctionCallStatement(FunctionCallStatementContext $ctx) {
+        $this->fail("Llamadas a funcion aun no estan soportadas en la generacion actual");
+    }
+
+    public function visitArrayAssignmentStatement(ArrayAssignmentStatementContext $ctx) {
+        $refInfo = $this->visit($ctx->ref_list());
+        if (!is_array($refInfo)
+            || !array_key_exists("id", $refInfo)
+            || !array_key_exists("rank", $refInfo)) {
+            $this->fail("Referencia a array invalida");
+        }
+
+        $varName = $refInfo["id"];
+        $symbol = $this->env->get($varName);
+
+        $assignExpr = ($ctx->assign !== null) ? $ctx->assign : $ctx->e();
+        if ($assignExpr === null) {
+            $this->fail("Asignacion a array invalida");
+        }
+
+        $assignType = $this->visit($assignExpr);
+
+        $currentType = $symbol["type"];
+        if (!TypeChecker::isArrayType($currentType)) {
+            $this->fail("Se intento indexar un valor no-array en '" . $varName . "'");
+        }
+
+        $rank = array_key_exists("rank", $currentType) ? $currentType["rank"] : 1;
+        if ($refInfo["rank"] !== $rank) {
+            $this->fail("Se esperaban " . $rank . " indices para asignar en '" . $varName . "', se recibieron " . $refInfo["rank"]);
+        }
+
+        $expectedType = $currentType["elem"];
+        if (!TypeChecker::typeEquals($assignType, $expectedType)) {
+            $this->fail("Tipo incompatible en asignacion de array, se esperaba " . TypeChecker::typeToString($expectedType) . " y se obtuvo " . TypeChecker::typeToString($assignType));
+        }
+
+        $this->code->pop($this->r["T3"]);
+        $this->code->pop($this->r["T4"]);
+        $this->code->ldr($this->r["T1"], $this->r["FP"], $symbol["offset"]);
+
+        $headerBytes = ($rank + 1) * 8;
+        $this->code->li($this->r["T2"], 8);
+        $this->code->mul($this->r["T4"], $this->r["T4"], $this->r["T2"]);
+        $this->code->add($this->r["T2"], $this->r["T1"], $this->r["T4"]);
+        $this->code->addi($this->r["T2"], $this->r["T2"], $headerBytes);
+        $this->code->str($this->r["T3"], $this->r["T2"], 0);
+        return null;
     }
 
     public function visitBlockStatement(BlockStatementContext $ctx) {
@@ -299,167 +268,145 @@ class Compiler extends GrammarBaseVisitor {
         $prevOffset = $this->stackOffset;
         $this->env = new Environment($prevEnv);
 
-        $this->code->comment("Entrando a nuevo bloque/scope");
-
-        foreach ($ctx->stmt() as $stmt) {            
-            $flow = $this->visit($stmt);            
+        foreach ($ctx->stmt() as $stmt) {
+            $flow = $this->visit($stmt);
             if ($flow instanceof FlowType) {
-                // Reclamar el stack de variables locales antes de salir del bloque
                 if ($this->stackOffset !== $prevOffset) {
                     $bytesToReclaim = $prevOffset - $this->stackOffset;
                     $this->code->addi($this->r["SP"], $this->r["SP"], $bytesToReclaim);
                 }
                 $this->stackOffset = $prevOffset;
-                $this->env = $prevEnv;                
+                $this->env = $prevEnv;
                 return $flow;
             }
         }
 
-        // Normal: Reclamar el stack de variables locales al salir del bloque
         if ($this->stackOffset !== $prevOffset) {
             $bytesToReclaim = $prevOffset - $this->stackOffset;
-            $this->code->comment("Saliendo del bloque, recuperando " . $bytesToReclaim . " bytes");
             $this->code->addi($this->r["SP"], $this->r["SP"], $bytesToReclaim);
         }
+
         $this->stackOffset = $prevOffset;
         $this->env = $prevEnv;
-    }    
+        return null;
+    }
+
+    public function visitElse(ElseContext $ctx) {
+        return $this->visit($ctx->block());
+    }
+
+    public function visitE(EContext $ctx) {
+        return $this->visit($ctx->eq());
+    }
 
     public function visitEqualityExpression(EqualityExpressionContext $ctx) {
         $leftType = $this->visit($ctx->left);
-
-        if ($ctx->right !== null) {
-            $rightType = $this->visit($ctx->right);
-
-            if (!CompilerSupport::typeEquals($leftType, $rightType)) {
-                throw new Exception("Operador '==' requiere operandos del mismo tipo, se obtuvo " . CompilerSupport::typeToString($leftType) . " y " . CompilerSupport::typeToString($rightType));
-            }
-
-            $this->code->comment("Visitando expresión de igualdad: ==");
-            $this->code->pop($this->r["T0"]);
-            $this->code->pop($this->r["T1"]);
-            $this->code->comment("Comparando T1 == T0");
-            $this->code->cmp($this->r["T1"], $this->r["T0"]);
-            $this->code->cset($this->r["T0"], "eq");
-            $this->code->push($this->r["T0"]);
-            return "bool";
+        if ($ctx->right === null) {
+            return $leftType;
         }
 
-        return $leftType;
+        $rightType = $this->visit($ctx->right);
+        if (!TypeChecker::typeEquals($leftType, $rightType)) {
+            $this->fail("Operador '==' requiere operandos del mismo tipo, se obtuvo " . TypeChecker::typeToString($leftType) . " y " . TypeChecker::typeToString($rightType));
+        }
+
+        $this->code->pop($this->r["T0"]);
+        $this->code->pop($this->r["T1"]);
+        $this->code->cmp($this->r["T1"], $this->r["T0"]);
+        $this->code->cset($this->r["T0"], "eq");
+        $this->code->push($this->r["T0"]);
+        return "bool";
     }
 
     public function visitInequalityExpression(InequalityExpressionContext $ctx) {
         $leftType = $this->visit($ctx->left);
-
-        if ($ctx->right !== null) {
-            $rightType = $this->visit($ctx->right);
-            $op = $ctx->op->getText();
-
-            if (!CompilerSupport::isIntType($leftType) || !CompilerSupport::isIntType($rightType)) {
-                throw new Exception("Operador '" . $op . "' requiere operandos de tipo int, se obtuvo " . CompilerSupport::typeToString($leftType) . " y " . CompilerSupport::typeToString($rightType));
-            }
-
-            $this->code->comment("Visitando expresión de desigualdad: " . $op);
-            $this->code->pop($this->r["T0"]);
-            $this->code->pop($this->r["T1"]);
-            $this->code->comment("Comparando T1 " . $op . " T0");
-            $this->code->cmp($this->r["T1"], $this->r["T0"]);
-            $cond = ($op === ">") ? "gt" : "lt";
-            $this->code->cset($this->r["T0"], $cond);
-            $this->code->push($this->r["T0"]);
-            return "bool";
+        if ($ctx->right === null) {
+            return $leftType;
         }
 
-        return $leftType;
+        $rightType = $this->visit($ctx->right);
+        $op = $ctx->op->getText();
+
+        if (!TypeChecker::isIntType($leftType) || !TypeChecker::isIntType($rightType)) {
+            $this->fail("Operador '" . $op . "' requiere operandos de tipo int, se obtuvo " . TypeChecker::typeToString($leftType) . " y " . TypeChecker::typeToString($rightType));
+        }
+
+        $this->code->pop($this->r["T0"]);
+        $this->code->pop($this->r["T1"]);
+        $this->code->cmp($this->r["T1"], $this->r["T0"]);
+        $cond = ($op === ">") ? "gt" : "lt";
+        $this->code->cset($this->r["T0"], $cond);
+        $this->code->push($this->r["T0"]);
+        return "bool";
     }
 
-    public function visitAddExpression(AddExpressionContext $ctx) {            
-        if ($ctx->add() !== null) {
-            $leftType = $this->visit($ctx->add());
-            $rightType = $this->visit($ctx->prod());
-            $op = $ctx->op->getText();
-
-            if (!CompilerSupport::isIntType($leftType) || !CompilerSupport::isIntType($rightType)) {
-                throw new Exception("Operador '" . $op . "' requiere operandos de tipo int, se obtuvo " . CompilerSupport::typeToString($leftType) . " y " . CompilerSupport::typeToString($rightType));
-            }
-
-            $this->code->comment("Visitando expresión de suma/resta: " . $op);
-            $this->code->comment("Evaluando el segundo operando");
-            $this->code->pop($this->r["T0"]);
-            $this->code->comment("Evaluando el primer operando");
-            $this->code->pop($this->r["T1"]);
-
-            switch ($op) {
-                case '+':
-                    $this->code->comment("Sumando T1 con T0");
-                    $this->code->add($this->r["T0"], $this->r["T1"], $this->r["T0"]);
-                    $this->code->push($this->r["T0"]);
-                    break;
-                case '-':
-                    $this->code->comment("Restando T1 con T0");
-                    $this->code->sub($this->r["T0"], $this->r["T1"], $this->r["T0"]);
-                    $this->code->push($this->r["T0"]);
-                    break;
-                default:
-                    throw new Exception("Operador desconocido: " . $op);
-            }
-            return "int";
-        } else {
+    public function visitAddExpression(AddExpressionContext $ctx) {
+        if ($ctx->add() === null) {
             return $this->visit($ctx->prod());
         }
+
+        $leftType = $this->visit($ctx->add());
+        $rightType = $this->visit($ctx->prod());
+        $op = $ctx->op->getText();
+
+        if (!TypeChecker::isIntType($leftType) || !TypeChecker::isIntType($rightType)) {
+            $this->fail("Operador '" . $op . "' requiere operandos de tipo int, se obtuvo " . TypeChecker::typeToString($leftType) . " y " . TypeChecker::typeToString($rightType));
+        }
+
+        $this->code->pop($this->r["T0"]);
+        $this->code->pop($this->r["T1"]);
+
+        if ($op === "+") {
+            $this->code->add($this->r["T0"], $this->r["T1"], $this->r["T0"]);
+        } elseif ($op === "-") {
+            $this->code->sub($this->r["T0"], $this->r["T1"], $this->r["T0"]);
+        } else {
+            $this->fail("Operador desconocido: " . $op);
+        }
+
+        $this->code->push($this->r["T0"]);
+        return "int";
     }
 
-    public function visitProductExpression(ProductExpressionContext $ctx) {                
-        if ($ctx->prod() !== null) {
-            $leftType = $this->visit($ctx->prod());
-            $rightType = $this->visit($ctx->unary());
-            $op = $ctx->op->getText();
-
-            if (!CompilerSupport::isIntType($leftType) || !CompilerSupport::isIntType($rightType)) {
-                throw new Exception("Operador '" . $op . "' requiere operandos de tipo int, se obtuvo " . CompilerSupport::typeToString($leftType) . " y " . CompilerSupport::typeToString($rightType));
-            }
-
-            $this->code->comment("Visitando expresión de producto: " . $op);
-            $this->code->comment("Evaluando el segundo operando");
-            $this->code->pop($this->r["T0"]);
-            $this->code->comment("Evaluando el primer operando");
-            $this->code->pop($this->r["T1"]);
-
-            switch ($op) {
-                case '*':
-                    $this->code->comment("Multiplicando T1 con T0");  
-                    $this->code->mul($this->r["T0"], $this->r["T1"], $this->r["T0"]);
-                    $this->code->push($this->r["T0"]);                  
-                    break;                 
-                case '/':
-                    $this->code->comment("Dividiendo T1 con T0");
-                    $this->code->div($this->r["T0"], $this->r["T1"], $this->r["T0"]);
-                    $this->code->push($this->r["T0"]);
-                    break;
-                default:
-                    throw new Exception("Operador desconocido: " . $op);
-            }
-            return "int";
-        } else {
+    public function visitProductExpression(ProductExpressionContext $ctx) {
+        if ($ctx->prod() === null) {
             return $this->visit($ctx->unary());
-        }   
+        }
+
+        $leftType = $this->visit($ctx->prod());
+        $rightType = $this->visit($ctx->unary());
+        $op = $ctx->op->getText();
+
+        if (!TypeChecker::isIntType($leftType) || !TypeChecker::isIntType($rightType)) {
+            $this->fail("Operador '" . $op . "' requiere operandos de tipo int, se obtuvo " . TypeChecker::typeToString($leftType) . " y " . TypeChecker::typeToString($rightType));
+        }
+
+        $this->code->pop($this->r["T0"]);
+        $this->code->pop($this->r["T1"]);
+
+        if ($op === "*") {
+            $this->code->mul($this->r["T0"], $this->r["T1"], $this->r["T0"]);
+        } elseif ($op === "/") {
+            $this->code->div($this->r["T0"], $this->r["T1"], $this->r["T0"]);
+        } else {
+            $this->fail("Operador desconocido: " . $op);
+        }
+
+        $this->code->push($this->r["T0"]);
+        return "int";
     }
 
     public function visitPrimaryExpression(PrimaryExpressionContext $ctx) {
         return $this->visit($ctx->primary());
     }
 
-    public function visitUnaryExpression(UnaryExpressionContext $ctx) {       
-        $this->code->comment("Visitando expresión unaria"); 
+    public function visitUnaryExpression(UnaryExpressionContext $ctx) {
         $type = $this->visit($ctx->unary());
-
-        if (!CompilerSupport::isIntType($type)) {
-            throw new Exception("Operador '-' (unario) requiere operando de tipo int, se obtuvo " . CompilerSupport::typeToString($type));
+        if (!TypeChecker::isIntType($type)) {
+            $this->fail("Operador '-' (unario) requiere operando de tipo int, se obtuvo " . TypeChecker::typeToString($type));
         }
 
-        $this->code->comment("Cargando el valor en T0");    
         $this->code->pop($this->r["T0"]);
-        $this->code->comment("Negando el valor en T0");
         $this->code->sub($this->r["T0"], $this->r["ZERO"], $this->r["T0"]);
         $this->code->push($this->r["T0"]);
         return "int";
@@ -470,7 +417,6 @@ class Compiler extends GrammarBaseVisitor {
     }
 
     public function visitIntExpression(IntExpressionContext $ctx) {
-        $this->code->comment("Cargando entero: " . $ctx->INT()->getText());
         $number = intval($ctx->INT()->getText());
         $this->code->li($this->r["T0"], $number);
         $this->code->push($this->r["T0"]);
@@ -482,31 +428,107 @@ class Compiler extends GrammarBaseVisitor {
         $symbol = $this->env->get($varName);
         $offset = $symbol["offset"];
 
-        $this->code->comment("Referencia a variable: " . $varName . " en [FP, #" . $offset . "]");
         $this->code->ldr($this->r["T0"], $this->r["FP"], $offset);
         $this->code->push($this->r["T0"]);
         return $symbol["type"];
     }
 
-    public function visitArrayExpression(ArrayExpressionContext $ctx) {
-        $analysis = CompilerSupport::analyzeArrayLiteralNode($ctx, function($node) {
-            return $this->visit($node);
-        });
-        $elemType = $analysis["scalarType"];
-        $dims = $analysis["dims"];
-        $rank = count($dims);
+    public function visitBoolExpression(BoolExpressionContext $ctx) {
+        $value = $ctx->bool->getText();
+        $intVal = ($value === "true") ? 1 : 0;
 
-        $totalElements = 1;
-        foreach ($dims as $d) {
-            $totalElements *= $d;
+        $this->code->li($this->r["T0"], $intVal);
+        $this->code->push($this->r["T0"]);
+        return "bool";
+    }
+
+    public function visitFunctionCallExpression(FunctionCallExpressionContext $ctx) {
+        $this->fail("Llamadas a funcion aun no estan soportadas en la generacion actual");
+    }
+
+    public function visitArrayExpression(ArrayExpressionContext $ctx) {
+        return $this->visit($ctx->array());
+    }
+
+    public function visitArrayAccessExpression(ArrayAccessExpressionContext $ctx) {
+        $refInfo = $this->visit($ctx->ref_list());
+        if (!is_array($refInfo)
+            || !array_key_exists("id", $refInfo)
+            || !array_key_exists("rank", $refInfo)) {
+            $this->fail("Referencia a array invalida");
         }
+
+        $varName = $refInfo["id"];
+        $symbol = $this->env->get($varName);
+
+        $currentType = $symbol["type"];
+        if (!TypeChecker::isArrayType($currentType)) {
+            $this->fail("Se intento indexar un valor no-array en '" . $varName . "'");
+        }
+
+        $rank = array_key_exists("rank", $currentType) ? $currentType["rank"] : 1;
+        if ($refInfo["rank"] !== $rank) {
+            $this->fail("Se esperaban " . $rank . " indices para '" . $varName . "', se recibieron " . $refInfo["rank"]);
+        }
+
+        $this->code->ldr($this->r["T1"], $this->r["FP"], $symbol["offset"]);
+        $this->code->pop($this->r["T3"]);
+
+        $headerBytes = ($rank + 1) * 8;
+        $this->code->li($this->r["T2"], 8);
+        $this->code->mul($this->r["T3"], $this->r["T3"], $this->r["T2"]);
+        $this->code->add($this->r["T2"], $this->r["T1"], $this->r["T3"]);
+        $this->code->addi($this->r["T2"], $this->r["T2"], $headerBytes);
+
+        $this->code->ldr($this->r["T3"], $this->r["T2"], 0);
+        $this->code->push($this->r["T3"]);
+        return $currentType["elem"];
+    }
+
+    public function visitTransformRowMajor(TransformRowMajorContext $ctx) {
+        if ($this->collectArrayLiteral) {
+            $listInfo = $this->visit($ctx->exp_list());
+            if (!is_array($listInfo)
+                || !array_key_exists("node", $listInfo)
+                || $listInfo["node"] !== "expr_list") {
+                $this->fail("Array literal invalido: no se encontro metadata de lista");
+            }
+            return [
+                "node" => "array_literal",
+                "elemType" => $listInfo["elemType"],
+                "dims" => $listInfo["dims"],
+                "totalElements" => $listInfo["totalElements"]
+            ];
+        }
+
+        $this->collectArrayLiteral = true;
+        $listInfo = $this->visit($ctx->exp_list());
+        $this->collectArrayLiteral = false;
+
+        if (!is_array($listInfo)
+            || !array_key_exists("node", $listInfo)
+            || $listInfo["node"] !== "expr_list") {
+            $this->fail("Array literal invalido: no se encontro metadata de lista");
+        }
+
+        $elemType = $listInfo["elemType"];
+        $dims = $listInfo["dims"];
+        $totalElements = $listInfo["totalElements"];
+        $rank = count($dims);
 
         $headerBytes = ($rank + 1) * 8;
         $bytes = $headerBytes + ($totalElements * 8);
 
-        $this->emitHeapAllocFixed($bytes, $this->r["T4"]);
+        $this->code->emitHeapAllocFixed(
+            $bytes,
+            $this->r["T4"],
+            $this->r["HP"],
+            $this->r["HEAP_END"],
+            $this->r["T0"],
+            $this->r["T1"],
+            CompilerError::PANIC_OOM_LABEL
+        );
 
-        $this->code->comment("Alojando en el Heap");
         $this->code->li($this->r["T0"], $rank);
         $this->code->str($this->r["T0"], $this->r["T4"], 0);
         for ($i = 0; $i < $rank; $i++) {
@@ -521,76 +543,182 @@ class Compiler extends GrammarBaseVisitor {
         }
 
         $this->code->push($this->r["T4"]);
-        return CompilerSupport::makeArrayTypeWithRankAndDims($elemType, $rank, $dims);
+        return TypeChecker::makeArrayTypeWithRankAndDims($elemType, $rank, $dims);
     }
 
-    public function visitArrayAccessExpression(ArrayAccessExpressionContext $ctx) {
-        $varName = $ctx->ID()->getText();
-        $symbol = $this->env->get($varName);
-        $indexes = CompilerSupport::getArrayAccessIndexes($ctx);
-
-        if (count($indexes) === 0) {
-            throw new Exception("Acceso a array sin índices");
+    public function visitInitExpressionList(InitExpressionListContext $ctx) {
+        if (!$this->collectArrayLiteral) {
+            $this->fail("exp_list solo puede evaluarse en contexto de array literal");
         }
 
+        $first = $this->visit($ctx->e());
+
+        if (TypeChecker::isIntOrBoolType($first)) {
+            return [
+                "node" => "expr_list",
+                "kind" => "scalar",
+                "elemType" => $first,
+                "dims" => [1],
+                "totalElements" => 1
+            ];
+        }
+
+        if (is_array($first)
+            && array_key_exists("node", $first)
+            && $first["node"] === "array_literal") {
+            if (!array_key_exists("dims", $first)
+                || !array_key_exists("elemType", $first)
+                || !array_key_exists("totalElements", $first)) {
+                $this->fail("Array literal anidado invalido");
+            }
+
+            return [
+                "node" => "expr_list",
+                "kind" => "array",
+                "elemType" => $first["elemType"],
+                "dims" => array_merge([1], $first["dims"]),
+                "totalElements" => $first["totalElements"]
+            ];
+        }
+
+        $this->fail("Array literal solo admite escalares int/bool o sub-arrays literales");
+    }
+
+    public function visitExpressionList(ExpressionListContext $ctx) {
+        $left = $this->visit($ctx->exp_list());
+
+        if (!$this->collectArrayLiteral || !is_array($left)
+            || !array_key_exists("node", $left)
+            || $left["node"] !== "expr_list") {
+            $this->fail("Metadata invalida en exp_list");
+        }
+
+        $next = $this->visit($ctx->e());
+        $result = $left;
+
+        if (TypeChecker::isIntOrBoolType($next)) {
+            if ($result["kind"] !== "scalar") {
+                $this->fail("Array multidimensional debe ser rectangular y no mezclar escalares con sub-arrays");
+            }
+
+            if (!TypeChecker::typeEquals($result["elemType"], $next)) {
+                $this->fail("Array literal requiere elementos homogeneos, se obtuvo " . TypeChecker::typeToString($result["elemType"]) . " y " . TypeChecker::typeToString($next));
+            }
+
+            $result["dims"][0] = $result["dims"][0] + 1;
+            $result["totalElements"] = $result["totalElements"] + 1;
+            return $result;
+        }
+
+        if (is_array($next)
+            && array_key_exists("node", $next)
+            && $next["node"] === "array_literal") {
+            if ($result["kind"] !== "array") {
+                $this->fail("Array multidimensional debe ser rectangular y no mezclar escalares con sub-arrays");
+            }
+
+            if (!TypeChecker::typeEquals($result["elemType"], $next["elemType"])) {
+                $this->fail("Sub-arrays deben tener el mismo tipo escalar base");
+            }
+
+            $expectedChildDims = array_slice($result["dims"], 1);
+            if ($expectedChildDims !== $next["dims"]) {
+                $this->fail("Array multidimensional debe ser rectangular (sub-arrays con mismas dimensiones)");
+            }
+
+            $result["dims"][0] = $result["dims"][0] + 1;
+            $result["totalElements"] = $result["totalElements"] + $next["totalElements"];
+            return $result;
+        }
+
+        $this->fail("Array literal solo admite escalares int/bool o sub-arrays literales");
+    }
+
+    public function visitInitArrayReferenceExpression(InitArrayReferenceExpressionContext $ctx) {
+        $id = $ctx->ID()->getText();
+        $symbol = $this->env->get($id);
         $currentType = $symbol["type"];
-        if (!CompilerSupport::isArrayType($currentType)) {
-            throw new Exception("Se intentó indexar un valor no-array en '" . $varName . "'");
+        if (!TypeChecker::isArrayType($currentType)) {
+            $this->fail("Se intento indexar un valor no-array en '" . $id . "'");
         }
 
-        $rank = array_key_exists("rank", $currentType) ? $currentType["rank"] : 1;
-        if (count($indexes) !== $rank) {
-            throw new Exception("Se esperaban " . $rank . " índices para '" . $varName . "', se recibieron " . count($indexes));
+        $indexType = $this->visit($ctx->e());
+        if (!TypeChecker::isIntType($indexType)) {
+            $this->fail("El indice de array debe ser int, se obtuvo " . TypeChecker::typeToString($indexType));
         }
 
+        $this->code->pop($this->r["T0"]);
         $this->code->ldr($this->r["T1"], $this->r["FP"], $symbol["offset"]);
-        $this->emitRowMajorAddrFromIndexes($this->r["T1"], $indexes, $rank, $this->r["T2"]);
-        $this->code->ldr($this->r["T3"], $this->r["T2"], 0);
-        $this->code->push($this->r["T3"]);
-        return $currentType["elem"];
-    }
-
-    public function visitArrayAssignmentStatement(ArrayAssignmentStatementContext $ctx) {
-        $varName = $ctx->ID()->getText();
-        $symbol = $this->env->get($varName);
-        $parts = CompilerSupport::getArrayAssignParts($ctx);
-        $indexes = $parts["indexes"];
-        $assignExpr = $parts["assign"];
-
-        if ($assignExpr === null || count($indexes) === 0) {
-            throw new Exception("Asignación a array inválida");
-        }
-
-        $assignType = $this->visit($assignExpr);
-        $currentType = $symbol["type"];
-        if (!CompilerSupport::isArrayType($currentType)) {
-            throw new Exception("Se intentó indexar un valor no-array en '" . $varName . "'");
-        }
-
-        $rank = array_key_exists("rank", $currentType) ? $currentType["rank"] : 1;
-        if (count($indexes) !== $rank) {
-            throw new Exception("Se esperaban " . $rank . " índices para asignar en '" . $varName . "', se recibieron " . count($indexes));
-        }
-
-        $this->code->ldr($this->r["T1"], $this->r["FP"], $symbol["offset"]);
-
-        $expectedType = $currentType["elem"];
-        if (!CompilerSupport::typeEquals($assignType, $expectedType)) {
-            throw new Exception("Tipo incompatible en asignación de array, se esperaba " . CompilerSupport::typeToString($expectedType) . " y se obtuvo " . CompilerSupport::typeToString($assignType));
-        }
-
-        $this->emitRowMajorAddrFromIndexes($this->r["T1"], $indexes, $rank, $this->r["T2"]);
-        $this->code->pop($this->r["T3"]);
-        $this->code->str($this->r["T3"], $this->r["T2"], 0);
-        return null;
-    }
-
-    public function visitBoolExpression(BoolExpressionContext $ctx) {
-        $value = $ctx->bool->getText();
-        $intVal = ($value === "true") ? 1 : 0;
-        $this->code->comment("Cargando booleano: " . $value);
-        $this->code->li($this->r["T0"], $intVal);
+        $this->code->cmp($this->r["T0"], "#0");
+        $this->code->bcond("lt", CompilerError::PANIC_OOB_LABEL);
+        $this->code->ldr($this->r["T2"], $this->r["T1"], 8);
+        $this->code->cmp($this->r["T0"], $this->r["T2"]);
+        $this->code->bcond("ge", CompilerError::PANIC_OOB_LABEL);
         $this->code->push($this->r["T0"]);
-        return "bool";
+
+        return [
+            "id" => $id,
+            "rank" => 1
+        ];
+    }
+
+    public function visitArrayReferenceExpression(ArrayReferenceExpressionContext $ctx) {
+        $left = $this->visit($ctx->ref_list());
+        if (!is_array($left)
+            || !array_key_exists("id", $left)
+            || !array_key_exists("rank", $left)) {
+            $this->fail("Referencia a array invalida");
+        }
+
+        $symbol = $this->env->get($left["id"]);
+        $currentType = $symbol["type"];
+        if (!TypeChecker::isArrayType($currentType)) {
+            $this->fail("Se intento indexar un valor no-array en '" . $left["id"] . "'");
+        }
+
+        $expectedRank = array_key_exists("rank", $currentType) ? $currentType["rank"] : 1;
+        if ($left["rank"] >= $expectedRank) {
+            $this->fail("Se proporcionaron demasiados indices para '" . $left["id"] . "'");
+        }
+
+        $indexType = $this->visit($ctx->e());
+        if (!TypeChecker::isIntType($indexType)) {
+            $this->fail("El indice de array debe ser int, se obtuvo " . TypeChecker::typeToString($indexType));
+        }
+
+        $this->code->pop($this->r["T0"]);
+        $this->code->ldr($this->r["T1"], $this->r["FP"], $symbol["offset"]);
+        $dimOffset = 8 + ($left["rank"] * 8);
+        $this->code->cmp($this->r["T0"], "#0");
+        $this->code->bcond("lt", CompilerError::PANIC_OOB_LABEL);
+        $this->code->ldr($this->r["T2"], $this->r["T1"], $dimOffset);
+        $this->code->cmp($this->r["T0"], $this->r["T2"]);
+        $this->code->bcond("ge", CompilerError::PANIC_OOB_LABEL);
+
+        $this->code->pop($this->r["T3"]);
+        $this->code->mul($this->r["T3"], $this->r["T3"], $this->r["T2"]);
+        $this->code->add($this->r["T3"], $this->r["T3"], $this->r["T0"]);
+        $this->code->push($this->r["T3"]);
+
+        return [
+            "id" => $left["id"],
+            "rank" => $left["rank"] + 1
+        ];
+    }
+
+    public function visitParameterList(ParameterListContext $ctx) {
+        $params = [];
+        foreach ($ctx->ID() as $id) {
+            $params[] = $id->getText();
+        }
+        return $params;
+    }
+
+    public function visitArgumentList(ArgumentListContext $ctx) {
+        $args = [];
+        foreach ($ctx->e() as $expr) {
+            $args[] = $expr;
+        }
+        return $args;
     }
 }

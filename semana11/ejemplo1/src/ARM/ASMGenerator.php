@@ -172,6 +172,28 @@ class ASMGenerator {
         $this->syscall();
     }
 
+    public function emitHeapAllocFixed($bytes, $resultReg, $hpReg, $heapEndReg, $tmp0Reg, $tmp1Reg, $panicOomLabel) {
+        $this->comment("Heap alloc de " . $bytes . " bytes");
+        $this->mov($resultReg, $hpReg);
+        $this->li($tmp0Reg, $bytes);
+        $this->add($tmp1Reg, $hpReg, $tmp0Reg);
+        $this->cmp($tmp1Reg, $heapEndReg);
+        $this->bcond("hi", $panicOomLabel);
+        $this->mov($hpReg, $tmp1Reg);
+    }
+
+    public function emitRuntimeErrorHandlers($panicOobLabel, $panicOobCode, $panicOomLabel, $panicOomCode, $a0Reg, $sysReg) {
+        $this->label($panicOobLabel);
+        $this->li($a0Reg, $panicOobCode);
+        $this->li($sysReg, 93);
+        $this->syscall();
+
+        $this->label($panicOomLabel);
+        $this->li($a0Reg, $panicOomCode);
+        $this->li($sysReg, 93);
+        $this->syscall();
+    }
+
     public function comment($text) {
         $this->instr[] = new Instruction("// ".$text);
     }
