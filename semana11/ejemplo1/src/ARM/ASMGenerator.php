@@ -122,6 +122,27 @@ class ASMGenerator {
         $this->instr[] = new Instruction("bl", $label);
     }
 
+    public function ret() {
+        $this->instr[] = new Instruction("ret");
+    }
+
+    public function stpPre($rs1, $rs2, $base, $imm) {
+        $this->instr[] = new Instruction("stp", $rs1, $rs2, "[".$base.", #".$imm."]!");
+    }
+
+    public function ldpPost($rd1, $rd2, $base, $imm) {
+        $this->instr[] = new Instruction("ldp", $rd1, $rd2, "[".$base."], #".$imm);
+    }
+
+    public function andi($rd, $rs, $imm) {
+        if ($rs === "sp") {
+            $this->addi($rd, $rs, 0);
+            $this->instr[] = new Instruction("and", $rd, $rd, "#".$imm);
+            return;
+        }
+        $this->instr[] = new Instruction("and", $rd, $rs, "#".$imm);
+    }
+
     public function push($rd=null) {
 
         if ($rd === null) $rd = $this->r["T0"];
@@ -194,6 +215,23 @@ class ASMGenerator {
         $this->syscall();
     }
 
+    public function emitNativeTime($label) {
+        $this->label($label);
+        $this->stpPre($this->r["FP"], $this->r["RA"], $this->r["SP"], -16);
+        $this->mov($this->r["FP"], $this->r["SP"]);
+
+        $this->li($this->r["A0"], 0);
+        $this->ldrl($this->r["A1"], "native_time_spec");
+        $this->li($this->r["SYS"], 113);
+        $this->syscall();
+
+        $this->ldrl($this->r["A0"], "native_time_spec");
+        $this->ldr($this->r["A0"], $this->r["A0"], 0);
+
+        $this->ldpPost($this->r["FP"], $this->r["RA"], $this->r["SP"], 16);
+        $this->ret();
+    }
+
     public function comment($text) {
         $this->instr[] = new Instruction("// ".$text);
     }
@@ -257,6 +295,7 @@ class ASMGenerator {
         $out .= ".section .bss\n";
         // Buffer para imprimir enteros de hasta 10 dígitos + signo + null terminator
         $out .= "buffer: .skip 32\n"; 
+        $out .= "native_time_spec: .skip 16\n";
         $out .= "heap_base: .skip 1048576\n";
         $out .= "heap_end:\n";
         $out .= ".section .text\n";        

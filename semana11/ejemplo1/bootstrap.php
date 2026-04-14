@@ -10,6 +10,7 @@ require_once __DIR__ . "/src/Environment.php";
 require_once __DIR__ . "/src/FlowTypes.php";
 require_once __DIR__ . "/src/Invocable.php";
 require_once __DIR__ . "/src/Foreigns.php";
+require_once __DIR__ . "/src/Natives.php";
 require_once __DIR__ . "/src/ARM/Constants.php";
 require_once __DIR__ . "/src/ARM/ASMGenerator.php";
 require_once __DIR__ . "/src/Compiler.php";

@@ -1,6 +1,7 @@
-.global _start
+   .global _start
 .section .bss
 buffer: .skip 32
+native_time_spec: .skip 16
 heap_base: .skip 1048576
 heap_end:
 .section .text
@@ -10,169 +11,31 @@ mov x29, sp
 // Inicializando heap pointer y limite de heap
 ldr x20, =heap_base
 ldr x21, =heap_end
-mov x9, #1
+add x19, sp, #0
+and x19, x19, #15
+cbz x19, L1
 sub sp, sp, #8
-str x9, [sp, #0]
-mov x9, #2
-sub sp, sp, #8
-str x9, [sp, #0]
-mov x9, #3
-sub sp, sp, #8
-str x9, [sp, #0]
-mov x9, #4
-sub sp, sp, #8
-str x9, [sp, #0]
-// Heap alloc de 64 bytes
-mov x13, x20
-mov x9, #64
-add x10, x20, x9
-cmp x10, x21
-b.hi _panic_oom
-mov x20, x10
-mov x9, #3
-str x9, [x13, #0]
-mov x9, #2
-str x9, [x13, #8]
-mov x9, #1
-str x9, [x13, #16]
-mov x9, #2
-str x9, [x13, #24]
-ldr x9, [sp, #0]
+mov x19, #1
+b L0
+L1:
+mov x19, #0
+L0:
+bl _native_time
+cbz x19, L2
 add sp, sp, #8
-str x9, [x13, #56]
-ldr x9, [sp, #0]
-add sp, sp, #8
-str x9, [x13, #48]
-ldr x9, [sp, #0]
-add sp, sp, #8
-str x9, [x13, #40]
-ldr x9, [sp, #0]
-add sp, sp, #8
-str x9, [x13, #32]
+b L3
+L2:
+L3:
 sub sp, sp, #8
-str x13, [sp, #0]
-// Declaracion de variable: t (array<int> rank=3 dims=2x1x2) en [FP, #-8]
+str x0, [sp, #0]
+// Declaracion de variable: t (int) en [FP, #-8]
 ldr x9, [sp, #0]
 add sp, sp, #8
 sub sp, sp, #8
 str x9, [x29, #-8]
-mov x9, #1
+ldr x9, [x29, #-8]
 sub sp, sp, #8
 str x9, [sp, #0]
-ldr x9, [sp, #0]
-add sp, sp, #8
-ldr x10, [x29, #-8]
-cmp x9, #0
-b.lt _panic_oob
-ldr x11, [x10, #8]
-cmp x9, x11
-b.ge _panic_oob
-sub sp, sp, #8
-str x9, [sp, #0]
-mov x9, #0
-sub sp, sp, #8
-str x9, [sp, #0]
-ldr x9, [sp, #0]
-add sp, sp, #8
-ldr x10, [x29, #-8]
-cmp x9, #0
-b.lt _panic_oob
-ldr x11, [x10, #16]
-cmp x9, x11
-b.ge _panic_oob
-ldr x12, [sp, #0]
-add sp, sp, #8
-mul x12, x12, x11
-add x12, x12, x9
-sub sp, sp, #8
-str x12, [sp, #0]
-mov x9, #1
-sub sp, sp, #8
-str x9, [sp, #0]
-ldr x9, [sp, #0]
-add sp, sp, #8
-ldr x10, [x29, #-8]
-cmp x9, #0
-b.lt _panic_oob
-ldr x11, [x10, #24]
-cmp x9, x11
-b.ge _panic_oob
-ldr x12, [sp, #0]
-add sp, sp, #8
-mul x12, x12, x11
-add x12, x12, x9
-sub sp, sp, #8
-str x12, [sp, #0]
-mov x9, #7
-sub sp, sp, #8
-str x9, [sp, #0]
-ldr x12, [sp, #0]
-add sp, sp, #8
-ldr x13, [sp, #0]
-add sp, sp, #8
-ldr x10, [x29, #-8]
-mov x11, #8
-mul x13, x13, x11
-add x11, x10, x13
-add x11, x11, #32
-str x12, [x11, #0]
-mov x9, #1
-sub sp, sp, #8
-str x9, [sp, #0]
-ldr x9, [sp, #0]
-add sp, sp, #8
-ldr x10, [x29, #-8]
-cmp x9, #0
-b.lt _panic_oob
-ldr x11, [x10, #8]
-cmp x9, x11
-b.ge _panic_oob
-sub sp, sp, #8
-str x9, [sp, #0]
-mov x9, #0
-sub sp, sp, #8
-str x9, [sp, #0]
-ldr x9, [sp, #0]
-add sp, sp, #8
-ldr x10, [x29, #-8]
-cmp x9, #0
-b.lt _panic_oob
-ldr x11, [x10, #16]
-cmp x9, x11
-b.ge _panic_oob
-ldr x12, [sp, #0]
-add sp, sp, #8
-mul x12, x12, x11
-add x12, x12, x9
-sub sp, sp, #8
-str x12, [sp, #0]
-mov x9, #1
-sub sp, sp, #8
-str x9, [sp, #0]
-ldr x9, [sp, #0]
-add sp, sp, #8
-ldr x10, [x29, #-8]
-cmp x9, #0
-b.lt _panic_oob
-ldr x11, [x10, #24]
-cmp x9, x11
-b.ge _panic_oob
-ldr x12, [sp, #0]
-add sp, sp, #8
-mul x12, x12, x11
-add x12, x12, x9
-sub sp, sp, #8
-str x12, [sp, #0]
-ldr x10, [x29, #-8]
-ldr x12, [sp, #0]
-add sp, sp, #8
-mov x11, #8
-mul x12, x12, x11
-add x11, x10, x12
-add x11, x11, #32
-ldr x12, [x11, #0]
-sub sp, sp, #8
-str x12, [sp, #0]
 // Imprimiendo el resultado de la expresion
 ldr x0, [sp, #0]
 add sp, sp, #8
@@ -202,6 +65,17 @@ _panic_oom:
 mov x0, #1
 mov x8, #93
 svc #0
+_native_time:
+stp x29, x30, [sp, #-16]!
+mov x29, sp
+mov x0, #0
+ldr x1, =native_time_spec
+mov x8, #113
+svc #0
+ldr x0, =native_time_spec
+ldr x0, [x0, #0]
+ldp x29, x30, [sp], #16
+ret
 itoa:
 // x0 = integer
 // returns:
@@ -241,4 +115,3 @@ mov x0, x2
 ret
 .section .rodata
 newline: .asciz "\n"
-

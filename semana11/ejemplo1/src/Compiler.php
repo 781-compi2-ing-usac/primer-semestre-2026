@@ -44,6 +44,8 @@ class Compiler extends GrammarBaseVisitor {
     public $labelCounter;
     public $loopLabels;
     public $collectArrayLiteral;
+    public $natives;
+    public $usedNativeLabels;
 
     public function __construct() {
         $this->code = new ASMGenerator();
@@ -53,6 +55,12 @@ class Compiler extends GrammarBaseVisitor {
         $this->labelCounter = 0;
         $this->loopLabels = [];
         $this->collectArrayLiteral = false;
+        $this->natives = include __DIR__ . "/Natives.php";
+        $this->usedNativeLabels = [];
+
+        foreach ($this->natives as $name => $descriptor) {
+            $this->env->set($name, $descriptor);
+        }
     }
 
     public function newLabel() {
@@ -61,6 +69,91 @@ class Compiler extends GrammarBaseVisitor {
 
     private function fail($message) {
         throw CompilerError::semantic($message);
+    }
+
+    private function compileNativeCall($fnName, $argsCtx, $pushReturn) {
+        try {
+            $symbol = $this->env->get($fnName);
+        } catch (Exception $e) {
+            $this->fail("Funcion '" . $fnName . "' no definida");
+        }
+        if (!is_array($symbol)
+            || !array_key_exists("kind", $symbol)
+            || $symbol["kind"] !== "native_fn") {
+            $this->fail("'" . $fnName . "' no es una funcion nativa invocable");
+        }
+
+        $arity = $symbol["arity"];
+        if ($arity > 8) {
+            $this->fail("Funcion nativa '" . $fnName . "' supera el maximo soportado de 8 argumentos");
+        }
+
+        $argExprs = [];
+        if ($argsCtx !== null) {
+            $argExprs = $this->visit($argsCtx);
+        }
+
+        if (!is_array($argExprs)) {
+            $this->fail("Lista de argumentos invalida para '" . $fnName . "'");
+        }
+
+        if (count($argExprs) !== $arity) {
+            $this->fail("'" . $fnName . "' espera " . $arity . " argumentos y se recibieron " . count($argExprs));
+        }
+
+        $argTypes = $symbol["argTypes"];
+        for ($i = 0; $i < count($argExprs); $i++) {
+            $type = $this->visit($argExprs[$i]);
+            $expected = $argTypes[$i];
+            if (!TypeChecker::typeEquals($type, $expected)) {
+                $this->fail("Argumento " . ($i + 1) . " de '" . $fnName . "' espera " . TypeChecker::typeToString($expected) . " y recibio " . TypeChecker::typeToString($type));
+            }
+        }
+
+        $argRegs = [
+            $this->r["A0"],
+            $this->r["A1"],
+            $this->r["A2"],
+            $this->r["A3"],
+            $this->r["A4"],
+            $this->r["A5"],
+            $this->r["A6"],
+            $this->r["A7"],
+        ];
+
+        for ($i = count($argExprs) - 1; $i >= 0; $i--) {
+            $this->code->pop($argRegs[$i]);
+        }
+
+        $padLabel = $this->newLabel();
+        $afterPadLabel = $this->newLabel();
+        $this->code->andi($this->r["S1"], $this->r["SP"], 15);
+        $this->code->cbz($this->r["S1"], $afterPadLabel);
+        $this->code->subi($this->r["SP"], $this->r["SP"], 8);
+        $this->code->li($this->r["S1"], 1);
+        $this->code->b($padLabel);
+        $this->code->label($afterPadLabel);
+        $this->code->li($this->r["S1"], 0);
+        $this->code->label($padLabel);
+
+        $nativeLabel = $symbol["label"];
+        $this->usedNativeLabels[$nativeLabel] = true;
+        $this->code->bl($nativeLabel);
+
+        $noUnpadLabel = $this->newLabel();
+        $doneUnpadLabel = $this->newLabel();
+        $this->code->cbz($this->r["S1"], $noUnpadLabel);
+        $this->code->addi($this->r["SP"], $this->r["SP"], 8);
+        $this->code->b($doneUnpadLabel);
+        $this->code->label($noUnpadLabel);
+        $this->code->label($doneUnpadLabel);
+
+        if ($pushReturn) {
+            $this->code->push($this->r["A0"]);
+            return $symbol["returnType"];
+        }
+
+        return null;
     }
 
     public function visitProgram(ProgramContext $ctx) {
@@ -83,6 +176,15 @@ class Compiler extends GrammarBaseVisitor {
             $this->r["A0"],
             $this->r["SYS"]
         );
+
+        foreach ($this->natives as $descriptor) {
+            $label = $descriptor["label"];
+            if (!array_key_exists($label, $this->usedNativeLabels)) {
+                continue;
+            }
+            $emitter = $descriptor["emitter"];
+            $this->code->$emitter($label);
+        }
         return $this->code;
     }
 
@@ -214,7 +316,9 @@ class Compiler extends GrammarBaseVisitor {
     }
 
     public function visitFunctionCallStatement(FunctionCallStatementContext $ctx) {
-        $this->fail("Llamadas a funcion aun no estan soportadas en la generacion actual");
+        $fnName = $ctx->ID()->getText();
+        $this->compileNativeCall($fnName, $ctx->args(), false);
+        return null;
     }
 
     public function visitArrayAssignmentStatement(ArrayAssignmentStatementContext $ctx) {
@@ -443,7 +547,8 @@ class Compiler extends GrammarBaseVisitor {
     }
 
     public function visitFunctionCallExpression(FunctionCallExpressionContext $ctx) {
-        $this->fail("Llamadas a funcion aun no estan soportadas en la generacion actual");
+        $fnName = $ctx->ID()->getText();
+        return $this->compileNativeCall($fnName, $ctx->args(), true);
     }
 
     public function visitArrayExpression(ArrayExpressionContext $ctx) {
