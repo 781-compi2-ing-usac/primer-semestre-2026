@@ -122,6 +122,27 @@ class ASMGenerator {
         $this->instr[] = new Instruction("bl", $label);
     }
 
+    public function ret() {
+        $this->instr[] = new Instruction("ret");
+    }
+
+    public function stpPre($rs1, $rs2, $base, $imm) {
+        $this->instr[] = new Instruction("stp", $rs1, $rs2, "[".$base.", #".$imm."]!");
+    }
+
+    public function ldpPost($rd1, $rd2, $base, $imm) {
+        $this->instr[] = new Instruction("ldp", $rd1, $rd2, "[".$base."], #".$imm);
+    }
+
+    public function andi($rd, $rs, $imm) {
+        if ($rs === "sp") {
+            $this->addi($rd, $rs, 0);
+            $this->instr[] = new Instruction("and", $rd, $rd, "#".$imm);
+            return;
+        }
+        $this->instr[] = new Instruction("and", $rd, $rs, "#".$imm);
+    }
+
     public function push($rd=null) {
 
         if ($rd === null) $rd = $this->r["T0"];
@@ -170,6 +191,45 @@ class ASMGenerator {
         $this->li($this->r["A0"], 0); // exit code 0
         $this->li($this->r["SYS"], 93);  // exit syscall
         $this->syscall();
+    }
+
+    public function emitHeapAllocFixed($bytes, $resultReg, $hpReg, $heapEndReg, $tmp0Reg, $tmp1Reg, $panicOomLabel) {
+        $this->comment("Heap alloc de " . $bytes . " bytes");
+        $this->mov($resultReg, $hpReg);
+        $this->li($tmp0Reg, $bytes);
+        $this->add($tmp1Reg, $hpReg, $tmp0Reg);
+        $this->cmp($tmp1Reg, $heapEndReg);
+        $this->bcond("hi", $panicOomLabel);
+        $this->mov($hpReg, $tmp1Reg);
+    }
+
+    public function emitRuntimeErrorHandlers($panicOobLabel, $panicOobCode, $panicOomLabel, $panicOomCode, $a0Reg, $sysReg) {
+        $this->label($panicOobLabel);
+        $this->li($a0Reg, $panicOobCode);
+        $this->li($sysReg, 93);
+        $this->syscall();
+
+        $this->label($panicOomLabel);
+        $this->li($a0Reg, $panicOomCode);
+        $this->li($sysReg, 93);
+        $this->syscall();
+    }
+
+    public function emitNativeTime($label) {
+        $this->label($label);
+        $this->stpPre($this->r["FP"], $this->r["RA"], $this->r["SP"], -16);
+        $this->mov($this->r["FP"], $this->r["SP"]);
+
+        $this->li($this->r["A0"], 0);
+        $this->ldrl($this->r["A1"], "native_time_spec");
+        $this->li($this->r["SYS"], 113);
+        $this->syscall();
+
+        $this->ldrl($this->r["A0"], "native_time_spec");
+        $this->ldr($this->r["A0"], $this->r["A0"], 0);
+
+        $this->ldpPost($this->r["FP"], $this->r["RA"], $this->r["SP"], 16);
+        $this->ret();
     }
 
     public function comment($text) {
@@ -235,6 +295,7 @@ class ASMGenerator {
         $out .= ".section .bss\n";
         // Buffer para imprimir enteros de hasta 10 dígitos + signo + null terminator
         $out .= "buffer: .skip 32\n"; 
+        $out .= "native_time_spec: .skip 16\n";
         $out .= "heap_base: .skip 1048576\n";
         $out .= "heap_end:\n";
         $out .= ".section .text\n";        

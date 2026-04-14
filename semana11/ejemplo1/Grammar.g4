@@ -17,7 +17,7 @@ stmt
     | 'return' e?                          # ReturnStatement
     | 'func' ID '(' params? ')' block      # FunctionDeclaration
     | ID '(' args? ')'                     # FunctionCallStatement
-    | ID ('[' index+=e ']')+ '=' assign=e  # ArrayAssignmentStatement
+    | ref_list ']' '=' assign=e            # ArrayAssignmentStatement
     ;
 
 block
@@ -71,8 +71,22 @@ primary
     | ID                               # ReferenceExpression
     | bool=('true'|'false')            # BoolExpression
     | ID '(' args? ')'                 # FunctionCallExpression
-    | '[' e (',' e)* ']'               # ArrayExpression
-    | ID ('[' e ']')+                  # ArrayAccessExpression
+    | array                            # ArrayExpression
+    | ref_list ']'                     # ArrayAccessExpression
+    ;
+
+array
+    : '[' exp_list ']'                 # TransformRowMajor
+    ;
+
+exp_list
+    : exp_list ',' e                   # ExpressionList
+    | e                                # InitExpressionList
+    ;
+
+ref_list
+    : ref_list ',' e                   # ArrayReferenceExpression
+    | ID '[' e                         # InitArrayReferenceExpression
     ;
 
 params
