@@ -1,25 +1,25 @@
-# Semana 10 - Ejemplo 1
+# Semana 11 - Ejemplo 1
 
 ## Descripción General
 
-En esta semana el compilador agrega el bloque de memoria dinámica del lenguaje: **heap pointer + arrays + accesos multiíndice en row-major order**. Se mantiene la arquitectura de semana anterior (entorno léxico, tipos, control de flujo, stack con `FP`) y se extiende con:
+En este incremento el compilador mantiene el soporte de arrays/heap de la entrega anterior y agrega el bloque de **llamadas a funciones** con generación ARM64 real:
 
-- Inicialización de heap en tiempo de ejecución (`heap_base`, `heap_end`, `HP`).
-- Reserva de memoria por *bump allocator* (sin `free`, sin GC).
-- Literales de arrays en heap con header `rank + dims + data`.
-- Acceso y asignación por índices (`arr[i]`, `m[i][j]`, `t[i][j][k]`) con cálculo row-major.
-- Validaciones semánticas (tipos, rectangularidad, cantidad de índices).
-- Validaciones runtime (out-of-bounds y out-of-memory).
+- Llamadas a funciones nativas (ej. `time()`) con ABI AAPCS64.
+- Declaración y llamada de funciones de usuario (`func ...`) como funciones "foreign" compiladas a labels ARM64.
+- Soporte de `return` en funciones.
+- Retorno por defecto `0` cuando una función no ejecuta `return` explícito.
+- Soporte de recursión directa.
+- Validaciones semánticas de aridad y de símbolo invocable.
 
-El hito conceptual es pasar de variables escalares en stack a **estructuras indexables en heap**, manteniendo tipado estático y generación ARM64 directa.
+El hito conceptual de esta semana es pasar de evaluar expresiones/arrays a **ejecutar llamadas de función con frame propio**, preservando convención de llamada y compatibilidad con el entorno léxico.
 
 ## Cambios respecto a la semana anterior
 
 ### Nuevas características en la gramática
 
-No hubo cambios en `Grammar.g4` para esta implementación. Se reutilizó la sintaxis ya existente para arrays.
+No hubo cambios en `Grammar.g4`. Las reglas de funciones ya existían y en esta entrega se implementó su semántica en el compilador.
 
-- **Sin nueva regla (se reutiliza lo ya definido)**
+- **Sin nueva regla (se implementa semántica sobre reglas existentes)**
 ```antlr
 stmt
     : 'print' '(' e ')'                    # PrintStatement
@@ -32,150 +32,140 @@ stmt
     | 'return' e?                          # ReturnStatement
     | 'func' ID '(' params? ')' block      # FunctionDeclaration
     | ID '(' args? ')'                     # FunctionCallStatement
-    | ID ('[' index+=e ']')+ '=' assign=e  # ArrayAssignmentStatement
+    | ref_list ']' '=' assign=e            # ArrayAssignmentStatement
     ;
 
 primary
-    : '(' e ')'                        # GroupedExpression
-    | INT                              # IntExpression
-    | ID                               # ReferenceExpression
-    | bool=('true'|'false')            # BoolExpression
-    | ID '(' args? ')'                 # FunctionCallExpression
-    | '[' e (',' e)* ']'               # ArrayExpression
-    | ID ('[' e ']')+                  # ArrayAccessExpression
+    : '(' e ')'                            # GroupedExpression
+    | INT                                  # IntExpression
+    | ID                                   # ReferenceExpression
+    | bool=('true'|'false')                # BoolExpression
+    | ID '(' args? ')'                     # FunctionCallExpression
+    | array                                # ArrayExpression
+    | ref_list ']'                         # ArrayAccessExpression
     ;
 ```
 
 ### Nuevas clases
 
-Se agregó una clase de apoyo para mantener `Compiler.php` enfocado únicamente en compilación:
-
-- `src/CompilerSupport.php`
-  - Centraliza helpers de tipos y de lectura de contextos ANTLR para arrays.
-  - Encapsula validaciones y utilidades reutilizables (`typeEquals`, `typeToString`, extracción de índices/partes de asignación, análisis de literales multidimensionales).
+No se agregaron clases nuevas para esta etapa; se reutilizó la base existente.
 
 ### Clases modificadas
 
 #### `src/Compiler.php`
 
 - Qué se agregó
-  - **Soporte de tipos estructurados para arrays**:
-    - Descriptor: `['kind'=>'array','elem'=>..., 'rank'=>N, 'dims'=>[...]]`.
-  - **Helpers de tipos**:
-    - `typeToString`, `typeEquals`, `isArrayType`, `makeArrayTypeWithRankAndDims`, etc.
-  - **Helpers de heap/runtime**:
-    - `emitHeapAllocFixed` para reservar memoria dinámica con verificación de límite.
-    - `emitRuntimeErrorHandlers` con labels `_panic_oob` y `_panic_oom`.
-  - **Helpers de arrays**:
-    - Análisis de literal multidimensional y validación de rectangularidad.
-    - Cálculo de dirección row-major para `rank` arbitrario.
-  - **Visitors implementados/completados**:
-    - `visitArrayExpression`
-    - `visitArrayAccessExpression`
-    - `visitArrayAssignmentStatement`
+  - **Resolución de funciones en el mismo `Environment`**:
+    - Símbolos `native_fn` y `foreign_fn` comparten namespace con variables.
+  - **Llamadas con ABI AAPCS64**:
+    - Paso de argumentos por `x0..x7`.
+    - Retorno por `x0`.
+    - Alineación de `SP` a 16 bytes antes de `bl`.
+  - **Funciones de usuario (`func`)**:
+    - Registro de descriptor de función (label, aridad, params, closure env).
+    - Emisión de cuerpo de función en `.text` con prologue/epilogue.
+    - Soporte de recursión.
+  - **`return` compilado**:
+    - `return e` carga resultado en `x0` y salta al epílogo.
+    - Si no hay `return`, la función retorna `0`.
 
 - Qué se cambió
-  - Se refactorizó para delegar lógica auxiliar a `CompilerSupport` y reducir mezcla de responsabilidades.
-  - `visitProgram` ahora inicializa heap:
-    - `ldr HP, =heap_base`
-    - `ldr HEAP_END, =heap_end`
-  - Se endureció validación de tipos en asignación/comparaciones para soportar arrays estructurados.
-  - `print` restringido a valores escalares (`int`/`bool`).
+  - `visitFunctionCallExpression` y `visitFunctionCallStatement` ahora generan llamada real.
+  - `visitProgram` ahora emite, además del main y handlers, los cuerpos de funciones foreign y natives usados.
+  - Se mantiene el soporte de arrays sin romper compatibilidad.
 
 - Por qué fue necesario
-  - Los arrays requieren almacenamiento fuera del stack de variables locales.
-  - Multiíndice exige conocer dimensiones y aplicar fórmula row-major.
-  - Sin checks runtime, accesos inválidos terminan en memoria corrupta.
+  - Para que `func`, `return` y llamadas dejaran de ser placeholders y pasaran a ejecución ARM64 real.
+  - Para permitir recursión y composición de llamadas (foreign -> foreign, foreign -> native).
 
 - Cómo afecta la ejecución
-  - El compilador emite ARM64 que reserva, indexa y escribe arrays en heap.
-  - Los errores OOB/OOM terminan la ejecución con códigos de salida controlados.
+  - El programa compilado puede declarar funciones, llamarlas y retornar valores correctamente.
+  - Las llamadas respetan convención de llamada y stack frame.
 
 #### `src/ARM/ASMGenerator.php`
 
 - Qué se agregó
-  - `bcond($cond, $label)` para emitir `b.<cond>` (ej. `b.ge`, `b.lt`, `b.hi`).
+  - Helpers de soporte ABI/funciones:
+    - `ret()`
+    - `stpPre(...)`
+    - `ldpPost(...)`
+    - `andi(...)`
+  - Emisor nativo:
+    - `emitNativeTime($label)`
 
 - Qué se cambió
-  - Sección `.bss` extendida con heap:
-    - `heap_base: .skip 1048576`
-    - `heap_end:`
+  - Sección `.bss` extendida con:
+    - `native_time_spec: .skip 16`
 
 - Por qué fue necesario
-  - Comparaciones de rango y capacidad de heap requieren saltos condicionales más generales.
-  - El compilador necesita una región concreta de heap para reservar arrays.
+  - Para generar prologue/epilogue AAPCS64 y código de función nativa (`time`).
 
 - Cómo afecta la ejecución
-  - El ensamblador generado ahora contiene memoria dinámica explícita para arrays.
+  - El ensamblador generado incluye funciones auxiliares invocables por `bl`.
 
-#### `src/ARM/Constants.php`
+#### `src/Natives.php`
 
-- Qué se agregó
-  - Alias semánticos:
-    - `HP => x20`
-    - `HEAP_END => x21`
+- Qué se cambió
+  - Pasó de objetos de intérprete a **tabla de descriptores de compilación**.
 
-- Por qué fue necesario
-  - Documenta y estabiliza el convenio de registros para heap pointer y límite.
+- Cómo se reutilizó
+  - Sigue siendo el punto central para definir funciones nativas disponibles.
+
+#### `bootstrap.php`
+
+- Qué se cambió
+  - Se mantiene carga explícita de clases, incluyendo `src/Natives.php`.
 
 #### `src/Environment.php` (reutilizada)
 
 - Qué se cambió
   - No se modificó código.
+
 - Cómo se reutilizó
-  - Se sigue usando para guardar símbolos (`type`, `offset`), ahora con tipos de array estructurados.
-
-#### `bootstrap.php`
-
-- Qué se cambió
-  - Se agregó la carga de `src/CompilerSupport.php` para que el compilador pueda usar las utilidades externas.
+  - Ahora guarda variables y funciones en el mismo entorno, manteniendo simplicidad del modelo.
 
 ### Cambios en el compilador
 
-- Modelo de memoria
-  - Stack: variables locales (slots con offset relativo a `FP`).
-  - Heap: arrays (bump allocator, sin `free`).
+- Convención de llamada AAPCS64 aplicada
+  - `x0..x7`: argumentos.
+  - `x0`: retorno.
+  - `SP` alineado a 16 bytes en sitio de llamada.
+  - Prologue/epilogue estándar en funciones foreign/nativas.
 
-- Layout de array en heap
-  - `base + 0`: `rank`
-  - `base + 8 ...`: dimensiones (`dims[0]`, `dims[1]`, ...)
-  - `base + (rank+1)*8`: datos lineales en row-major
-
-- Cálculo de offset row-major
-  - Para índices `i0..ik` y dimensiones `d0..dk`:
-  - `linear = (((i0 * d1 + i1) * d2 + i2) ... )`
-  - `addr = base + headerBytes + linear * 8`
+- Modelo de funciones
+  - Native:
+    - Descriptor + label + emisor en ASMGenerator.
+  - Foreign:
+    - Descriptor compilado desde `func`.
+    - Cuerpo emitido al final del programa.
+    - Retorno implícito `0` si no hay `return`.
 
 - Validaciones semánticas nuevas
-  - Literales de array no vacíos.
-  - Literales multidimensionales rectangulares (sin *jagged arrays*).
-  - Elementos homogéneos (`int` o `bool`, o base escalar consistente).
-  - Cantidad de índices debe coincidir con `rank`.
-  - Cada índice debe ser `int`.
-  - En asignación indexada, RHS debe coincidir con tipo escalar base del array.
-
-- Validaciones runtime nuevas
-  - Bounds check por dimensión (`0 <= idx < dim`).
-  - Heap overflow check antes de reservar memoria.
+  - Función no definida.
+  - Símbolo no invocable.
+  - Aridad incorrecta.
+  - Límite de 8 argumentos/parámetros en esta etapa.
 
 ---
 
 ## Estructura del Proyecto
 
 - `Grammar.g4`
-  - Gramática del lenguaje (sin cambios esta semana).
+  - Gramática del lenguaje (sin cambios en esta etapa).
 - `src/Compiler.php`
-  - Semántica y generación ARM64 (tipos, heap, arrays, row-major).
+  - Semántica y generación ARM64 (arrays + llamadas native/foreign).
+- `src/Natives.php`
+  - Registro de descriptores de funciones nativas.
 - `src/ARM/ASMGenerator.php`
-  - Emisión de instrucciones y secciones ASM (`.text`, `.bss`, `.rodata`).
+  - Emisión de instrucciones, helpers ABI y código nativo.
 - `src/ARM/Constants.php`
-  - Convenciones de registros (`FP`, `SP`, temporales, `HP`, `HEAP_END`).
+  - Convenciones de registros.
 - `src/Environment.php`
   - Tabla de símbolos por scopes encadenados.
 - `bootstrap.php`
   - Carga runtime ANTLR + clases del compilador.
 - `index.php`
-  - Entrada web para parsear y mostrar el ensamblador generado.
+  - Entrada web para parsear y mostrar ensamblador.
 - `build.sh`
   - Ensamblado + link + ejecución con QEMU ARM64.
 
@@ -213,43 +203,53 @@ chmod +x build.sh
 
 ## Ejemplos de entrada
 
-Array 1D:
+Native call:
 
 ```txt
-var a = [10,20,30]
-a[1] = 99
-print(a[1])
+print(time())
 ```
 
-Array 2D (row-major):
+Foreign call:
 
 ```txt
-var m = [[1,2,3],[4,5,6]]
-print(m[1][2])
+func id(a){
+  return a
+}
+print(id(5))
 ```
 
-Array 3D:
+Recursión:
 
 ```txt
-var t = [[[1,2]],[[3,4]]]
-print(t[1][0][1])
+func fact(n){
+  if (n < 2) { return 1 }
+  return n * fact(n - 1)
+}
+print(fact(5))
+```
+
+Sin return explícito:
+
+```txt
+func f(){
+  var x = 1
+}
+print(f())   // 0
 ```
 
 Errores esperados:
 
 ```txt
-var m = [[1,2],[3]]      // no rectangular
-print(m[1])              // faltan índices para rank=2
-print(m[2][0])           // out of bounds (runtime)
+print(foo())    // función no definida
+print(time(1))  // aridad incorrecta
 ```
 
 ---
 
 ## Conceptos aprendidos en esta semana
 
-- **Heap pointer en compiladores**: inicialización y avance monotónico (`bump allocation`).
-- **Representación interna de arrays**: `rank + dims + data` para acceso multiíndice.
-- **Row-major order**: linealización de índices multidimensionales.
-- **Chequeos de seguridad en runtime**: límites de índice y capacidad de heap.
-- **Reutilización de infraestructura previa**: `Environment` para metadatos sin tocar gramática.
-- **Integración incremental**: 1D estable, luego extensión multiíndice manteniendo compatibilidad.
+- **AAPCS64 en compiladores**: paso de argumentos, retorno y alineación de stack.
+- **Stack frame de función**: prologue/epilogue y retorno estructurado.
+- **Funciones nativas vs foreign**: descriptores, labels y estrategia de emisión.
+- **Recursión compilada**: uso correcto de `bl` y frames anidados.
+- **Modelo de entorno unificado**: variables y funciones en el mismo `Environment`.
