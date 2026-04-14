@@ -1,4 +1,5 @@
-   .global _start
+
+    .global _start
 .section .bss
 buffer: .skip 32
 native_time_spec: .skip 16
@@ -11,6 +12,16 @@ mov x29, sp
 // Inicializando heap pointer y limite de heap
 ldr x20, =heap_base
 ldr x21, =heap_end
+mov x9, #2
+sub sp, sp, #8
+str x9, [sp, #0]
+mov x9, #3
+sub sp, sp, #8
+str x9, [sp, #0]
+ldr x1, [sp, #0]
+add sp, sp, #8
+ldr x0, [sp, #0]
+add sp, sp, #8
 add x19, sp, #0
 and x19, x19, #15
 cbz x19, L1
@@ -20,7 +31,7 @@ b L0
 L1:
 mov x19, #0
 L0:
-bl _native_time
+bl _fn_sum
 cbz x19, L2
 add sp, sp, #8
 b L3
@@ -28,14 +39,30 @@ L2:
 L3:
 sub sp, sp, #8
 str x0, [sp, #0]
-// Declaracion de variable: t (int) en [FP, #-8]
-ldr x9, [sp, #0]
-add sp, sp, #8
-sub sp, sp, #8
-str x9, [x29, #-8]
-ldr x9, [x29, #-8]
+mov x9, #4
 sub sp, sp, #8
 str x9, [sp, #0]
+ldr x1, [sp, #0]
+add sp, sp, #8
+ldr x0, [sp, #0]
+add sp, sp, #8
+add x19, sp, #0
+and x19, x19, #15
+cbz x19, L5
+sub sp, sp, #8
+mov x19, #1
+b L4
+L5:
+mov x19, #0
+L4:
+bl _fn_sum
+cbz x19, L6
+add sp, sp, #8
+b L7
+L6:
+L7:
+sub sp, sp, #8
+str x0, [sp, #0]
 // Imprimiendo el resultado de la expresion
 ldr x0, [sp, #0]
 add sp, sp, #8
@@ -65,15 +92,33 @@ _panic_oom:
 mov x0, #1
 mov x8, #93
 svc #0
-_native_time:
+_fn_sum:
 stp x29, x30, [sp, #-16]!
 mov x29, sp
+sub sp, sp, #8
+str x0, [x29, #-8]
+sub sp, sp, #8
+str x1, [x29, #-16]
+ldr x9, [x29, #-8]
+sub sp, sp, #8
+str x9, [sp, #0]
+ldr x9, [x29, #-16]
+sub sp, sp, #8
+str x9, [sp, #0]
+ldr x9, [sp, #0]
+add sp, sp, #8
+ldr x10, [sp, #0]
+add sp, sp, #8
+add x9, x10, x9
+sub sp, sp, #8
+str x9, [sp, #0]
+ldr x0, [sp, #0]
+add sp, sp, #8
+b L8
 mov x0, #0
-ldr x1, =native_time_spec
-mov x8, #113
-svc #0
-ldr x0, =native_time_spec
-ldr x0, [x0, #0]
+b L8
+L8:
+add sp, sp, #16
 ldp x29, x30, [sp], #16
 ret
 itoa:

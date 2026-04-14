@@ -46,6 +46,10 @@ class Compiler extends GrammarBaseVisitor {
     public $collectArrayLiteral;
     public $natives;
     public $usedNativeLabels;
+    public $foreignFunctions;
+    public $inFunction;
+    public $currentFunctionReturnLabel;
+    public $currentBaseReg;
 
     public function __construct() {
         $this->code = new ASMGenerator();
@@ -57,6 +61,10 @@ class Compiler extends GrammarBaseVisitor {
         $this->collectArrayLiteral = false;
         $this->natives = include __DIR__ . "/Natives.php";
         $this->usedNativeLabels = [];
+        $this->foreignFunctions = [];
+        $this->inFunction = false;
+        $this->currentFunctionReturnLabel = null;
+        $this->currentBaseReg = $this->r["FP"];
 
         foreach ($this->natives as $name => $descriptor) {
             $this->env->set($name, $descriptor);
@@ -71,21 +79,29 @@ class Compiler extends GrammarBaseVisitor {
         throw CompilerError::semantic($message);
     }
 
-    private function compileNativeCall($fnName, $argsCtx, $pushReturn) {
+    private function symbolBaseReg($symbol) {
+        if (is_array($symbol) && array_key_exists("baseReg", $symbol)) {
+            return $symbol["baseReg"];
+        }
+        return $this->r["FP"];
+    }
+
+    private function compileCall($fnName, $argsCtx, $pushReturn) {
         try {
             $symbol = $this->env->get($fnName);
         } catch (Exception $e) {
             $this->fail("Funcion '" . $fnName . "' no definida");
         }
+
         if (!is_array($symbol)
             || !array_key_exists("kind", $symbol)
-            || $symbol["kind"] !== "native_fn") {
-            $this->fail("'" . $fnName . "' no es una funcion nativa invocable");
+            || ($symbol["kind"] !== "native_fn" && $symbol["kind"] !== "foreign_fn")) {
+            $this->fail("'" . $fnName . "' no es una funcion invocable");
         }
 
         $arity = $symbol["arity"];
         if ($arity > 8) {
-            $this->fail("Funcion nativa '" . $fnName . "' supera el maximo soportado de 8 argumentos");
+            $this->fail("Funcion '" . $fnName . "' supera el maximo soportado de 8 argumentos");
         }
 
         $argExprs = [];
@@ -101,7 +117,7 @@ class Compiler extends GrammarBaseVisitor {
             $this->fail("'" . $fnName . "' espera " . $arity . " argumentos y se recibieron " . count($argExprs));
         }
 
-        $argTypes = $symbol["argTypes"];
+        $argTypes = array_key_exists("argTypes", $symbol) ? $symbol["argTypes"] : [];
         for ($i = 0; $i < count($argExprs); $i++) {
             $type = $this->visit($argExprs[$i]);
             $expected = $argTypes[$i];
@@ -136,9 +152,11 @@ class Compiler extends GrammarBaseVisitor {
         $this->code->li($this->r["S1"], 0);
         $this->code->label($padLabel);
 
-        $nativeLabel = $symbol["label"];
-        $this->usedNativeLabels[$nativeLabel] = true;
-        $this->code->bl($nativeLabel);
+        $targetLabel = $symbol["label"];
+        if ($symbol["kind"] === "native_fn") {
+            $this->usedNativeLabels[$targetLabel] = true;
+        }
+        $this->code->bl($targetLabel);
 
         $noUnpadLabel = $this->newLabel();
         $doneUnpadLabel = $this->newLabel();
@@ -156,6 +174,72 @@ class Compiler extends GrammarBaseVisitor {
         return null;
     }
 
+    private function emitForeignFunction($descriptor) {
+        $ctx = $descriptor["ctx"];
+        $label = $descriptor["label"];
+        $params = $descriptor["params"];
+        $closureEnv = $descriptor["closureEnv"];
+
+        $savedEnv = $this->env;
+        $savedStackOffset = $this->stackOffset;
+        $savedLoopLabels = $this->loopLabels;
+        $savedInFunction = $this->inFunction;
+        $savedReturnLabel = $this->currentFunctionReturnLabel;
+        $savedBaseReg = $this->currentBaseReg;
+
+        $this->env = new Environment($closureEnv);
+        $this->stackOffset = 0;
+        $this->loopLabels = [];
+        $this->inFunction = true;
+        $this->currentFunctionReturnLabel = $this->newLabel();
+        $this->currentBaseReg = $this->r["FP"];
+
+        $this->code->label($label);
+        $this->code->stpPre($this->r["FP"], $this->r["RA"], $this->r["SP"], -16);
+        $this->code->mov($this->r["FP"], $this->r["SP"]);
+
+        $argRegs = [
+            $this->r["A0"],
+            $this->r["A1"],
+            $this->r["A2"],
+            $this->r["A3"],
+            $this->r["A4"],
+            $this->r["A5"],
+            $this->r["A6"],
+            $this->r["A7"],
+        ];
+
+        for ($i = 0; $i < count($params); $i++) {
+            $this->stackOffset -= 8;
+            $offset = $this->stackOffset;
+            $this->env->set($params[$i], [
+                "type" => "int",
+                "offset" => $offset,
+                "baseReg" => $this->currentBaseReg
+            ]);
+            $this->code->subi($this->r["SP"], $this->r["SP"], 8);
+            $this->code->str($argRegs[$i], $this->r["FP"], $offset);
+        }
+
+        $this->visit($ctx->block());
+        $this->code->li($this->r["A0"], 0);
+        $this->code->b($this->currentFunctionReturnLabel);
+
+        $this->code->label($this->currentFunctionReturnLabel);
+        if ($this->stackOffset < 0) {
+            $this->code->addi($this->r["SP"], $this->r["SP"], -$this->stackOffset);
+        }
+        $this->code->ldpPost($this->r["FP"], $this->r["RA"], $this->r["SP"], 16);
+        $this->code->ret();
+
+        $this->env = $savedEnv;
+        $this->stackOffset = $savedStackOffset;
+        $this->loopLabels = $savedLoopLabels;
+        $this->inFunction = $savedInFunction;
+        $this->currentFunctionReturnLabel = $savedReturnLabel;
+        $this->currentBaseReg = $savedBaseReg;
+    }
+
     public function visitProgram(ProgramContext $ctx) {
         $this->code->comment("Configurando el frame pointer");
         $this->code->mov($this->r["FP"], $this->r["SP"]);
@@ -164,6 +248,10 @@ class Compiler extends GrammarBaseVisitor {
         $this->code->ldrl($this->r["HEAP_END"], "heap_end");
 
         foreach ($ctx->stmt() as $stmt) {
+            if ($stmt instanceof FunctionDeclarationContext) {
+                $this->visit($stmt);
+                continue;
+            }
             $this->visit($stmt);
         }
 
@@ -176,6 +264,10 @@ class Compiler extends GrammarBaseVisitor {
             $this->r["A0"],
             $this->r["SYS"]
         );
+
+        foreach ($this->foreignFunctions as $descriptor) {
+            $this->emitForeignFunction($descriptor);
+        }
 
         foreach ($this->natives as $descriptor) {
             $label = $descriptor["label"];
@@ -208,7 +300,8 @@ class Compiler extends GrammarBaseVisitor {
 
         $this->env->set($varName, [
             "type" => $type,
-            "offset" => $offset
+            "offset" => $offset,
+            "baseReg" => $this->currentBaseReg
         ]);
 
         $this->code->comment("Declaracion de variable: " . $varName . " (" . TypeChecker::typeToString($type) . ") en [FP, #" . $offset . "]");
@@ -228,9 +321,10 @@ class Compiler extends GrammarBaseVisitor {
             $this->fail("No se puede asignar tipo " . TypeChecker::typeToString($exprType) . " a variable '" . $varName . "' de tipo " . TypeChecker::typeToString($symbol["type"]));
         }
 
-        $this->code->comment("Asignacion a variable: " . $varName . " en [FP, #" . $offset . "]");
+        $baseReg = $this->symbolBaseReg($symbol);
+        $this->code->comment("Asignacion a variable: " . $varName . " en [base, #" . $offset . "]");
         $this->code->pop($this->r["T0"]);
-        $this->code->str($this->r["T0"], $this->r["FP"], $offset);
+        $this->code->str($this->r["T0"], $baseReg, $offset);
     }
 
     public function visitIfStatement(IfStatementContext $ctx) {
@@ -308,16 +402,61 @@ class Compiler extends GrammarBaseVisitor {
     }
 
     public function visitReturnStatement(ReturnStatementContext $ctx) {
-        $this->fail("'return' aun no esta soportado en la generacion actual");
+        if (!$this->inFunction) {
+            $this->fail("'return' fuera de una funcion");
+        }
+
+        if ($ctx->e() !== null) {
+            $retType = $this->visit($ctx->e());
+            if (!TypeChecker::isIntType($retType)) {
+                $this->fail("En esta etapa, return solo admite int");
+            }
+            $this->code->pop($this->r["A0"]);
+        } else {
+            $this->code->li($this->r["A0"], 0);
+        }
+
+        $this->code->b($this->currentFunctionReturnLabel);
+        return new ReturnType("int");
     }
 
     public function visitFunctionDeclaration(FunctionDeclarationContext $ctx) {
-        $this->fail("'func' aun no esta soportado en la generacion actual");
+        $name = $ctx->ID()->getText();
+        $params = [];
+        if ($ctx->params() !== null) {
+            $params = $this->visit($ctx->params());
+        }
+
+        if (count($params) > 8) {
+            $this->fail("Funcion '" . $name . "' supera el maximo soportado de 8 parametros");
+        }
+
+        $argTypes = [];
+        for ($i = 0; $i < count($params); $i++) {
+            $argTypes[] = "int";
+        }
+
+        $label = "_fn_" . $name;
+        $descriptor = [
+            "kind" => "foreign_fn",
+            "name" => $name,
+            "label" => $label,
+            "arity" => count($params),
+            "argTypes" => $argTypes,
+            "returnType" => "int",
+            "params" => $params,
+            "closureEnv" => $this->env,
+            "ctx" => $ctx
+        ];
+
+        $this->env->set($name, $descriptor);
+        $this->foreignFunctions[] = $descriptor;
+        return null;
     }
 
     public function visitFunctionCallStatement(FunctionCallStatementContext $ctx) {
         $fnName = $ctx->ID()->getText();
-        $this->compileNativeCall($fnName, $ctx->args(), false);
+        $this->compileCall($fnName, $ctx->args(), false);
         return null;
     }
 
@@ -356,7 +495,8 @@ class Compiler extends GrammarBaseVisitor {
 
         $this->code->pop($this->r["T3"]);
         $this->code->pop($this->r["T4"]);
-        $this->code->ldr($this->r["T1"], $this->r["FP"], $symbol["offset"]);
+        $baseReg = $this->symbolBaseReg($symbol);
+        $this->code->ldr($this->r["T1"], $baseReg, $symbol["offset"]);
 
         $headerBytes = ($rank + 1) * 8;
         $this->code->li($this->r["T2"], 8);
@@ -530,9 +670,14 @@ class Compiler extends GrammarBaseVisitor {
     public function visitReferenceExpression(ReferenceExpressionContext $ctx) {
         $varName = $ctx->ID()->getText();
         $symbol = $this->env->get($varName);
+        if (!is_array($symbol)
+            || !array_key_exists("offset", $symbol)) {
+            $this->fail("'" . $varName . "' no es una variable escalar");
+        }
         $offset = $symbol["offset"];
 
-        $this->code->ldr($this->r["T0"], $this->r["FP"], $offset);
+        $baseReg = $this->symbolBaseReg($symbol);
+        $this->code->ldr($this->r["T0"], $baseReg, $offset);
         $this->code->push($this->r["T0"]);
         return $symbol["type"];
     }
@@ -548,7 +693,7 @@ class Compiler extends GrammarBaseVisitor {
 
     public function visitFunctionCallExpression(FunctionCallExpressionContext $ctx) {
         $fnName = $ctx->ID()->getText();
-        return $this->compileNativeCall($fnName, $ctx->args(), true);
+        return $this->compileCall($fnName, $ctx->args(), true);
     }
 
     public function visitArrayExpression(ArrayExpressionContext $ctx) {
@@ -576,7 +721,8 @@ class Compiler extends GrammarBaseVisitor {
             $this->fail("Se esperaban " . $rank . " indices para '" . $varName . "', se recibieron " . $refInfo["rank"]);
         }
 
-        $this->code->ldr($this->r["T1"], $this->r["FP"], $symbol["offset"]);
+        $baseReg = $this->symbolBaseReg($symbol);
+        $this->code->ldr($this->r["T1"], $baseReg, $symbol["offset"]);
         $this->code->pop($this->r["T3"]);
 
         $headerBytes = ($rank + 1) * 8;
@@ -753,7 +899,8 @@ class Compiler extends GrammarBaseVisitor {
         }
 
         $this->code->pop($this->r["T0"]);
-        $this->code->ldr($this->r["T1"], $this->r["FP"], $symbol["offset"]);
+        $baseReg = $this->symbolBaseReg($symbol);
+        $this->code->ldr($this->r["T1"], $baseReg, $symbol["offset"]);
         $this->code->cmp($this->r["T0"], "#0");
         $this->code->bcond("lt", CompilerError::PANIC_OOB_LABEL);
         $this->code->ldr($this->r["T2"], $this->r["T1"], 8);
@@ -792,7 +939,8 @@ class Compiler extends GrammarBaseVisitor {
         }
 
         $this->code->pop($this->r["T0"]);
-        $this->code->ldr($this->r["T1"], $this->r["FP"], $symbol["offset"]);
+        $baseReg = $this->symbolBaseReg($symbol);
+        $this->code->ldr($this->r["T1"], $baseReg, $symbol["offset"]);
         $dimOffset = 8 + ($left["rank"] * 8);
         $this->code->cmp($this->r["T0"], "#0");
         $this->code->bcond("lt", CompilerError::PANIC_OOB_LABEL);
